@@ -14,7 +14,7 @@ import {
   Eye,
   Edit,
   Trash2,
-  Mail,
+  Printer,
   Clock,
   AlertCircle,
   CheckCircle,
@@ -26,12 +26,17 @@ import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Icon from "../../components/ui/Icon";
+import { LeaseForm, LeaseViewModal } from "../../components/forms/manger form";
 
 const Leases = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedLease, setSelectedLease] = useState(null);
+  const [editingLease, setEditingLease] = useState(null);
 
   // Mock data
   const leases = [
@@ -150,9 +155,355 @@ const Leases = () => {
     (lease) => lease.status === "expired"
   ).length;
 
+  // Handler functions
+  const handleAddNew = () => {
+    setEditingLease(null);
+    setShowForm(true);
+  };
+
+  const handleEdit = (lease) => {
+    setEditingLease(lease);
+    setShowForm(true);
+  };
+
+  const handleView = (lease) => {
+    setSelectedLease(lease);
+    setShowViewModal(true);
+  };
+
+  const handleSaveLease = (leaseData) => {
+    console.log("Saving lease:", leaseData);
+    setShowForm(false);
+    setEditingLease(null);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingLease(null);
+  };
+
+  const handleCloseViewModal = () => {
+    setShowViewModal(false);
+    setSelectedLease(null);
+  };
+
+  const handlePrint = (lease) => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Lease Contract - ${lease.tenant}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4;
+                margin: 15mm;
+              }
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              line-height: 1.4;
+              color: #2d3748;
+              direction: ${direction};
+              font-size: 11px;
+            }
+            .container {
+              max-width: 100%;
+              margin: 0 auto;
+              padding: 10px;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 15px; 
+              border-bottom: 3px solid #4299e1;
+              padding-bottom: 10px;
+            }
+            .contract-title { 
+              font-size: 20px; 
+              font-weight: bold; 
+              color: #2b6cb0;
+              margin-bottom: 3px;
+            }
+            .contract-subtitle {
+              font-size: 12px;
+              color: #718096;
+            }
+            .content-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 15px;
+              margin-bottom: 15px;
+            }
+            .section { 
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              padding: 10px;
+            }
+            .section-title { 
+              font-size: 13px; 
+              font-weight: bold; 
+              color: #2d3748; 
+              margin-bottom: 6px;
+              border-bottom: 1px solid #cbd5e0;
+              padding-bottom: 3px;
+            }
+            .info-row { 
+              margin: 4px 0;
+              display: flex;
+              justify-content: space-between;
+            }
+            .label { 
+              font-weight: 600; 
+              color: #4a5568;
+              font-size: 10px;
+            }
+            .value { 
+              color: #2d3748;
+              font-size: 10px;
+              font-weight: 500;
+            }
+            .financial { 
+              background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+              border: 2px solid #4299e1;
+              border-radius: 8px;
+              padding: 12px;
+              margin: 15px 0;
+              text-align: center;
+            }
+            .financial .section-title {
+              border: none;
+              margin-bottom: 8px;
+              color: #2b6cb0;
+            }
+            .financial-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+            .financial-item {
+              background: white;
+              padding: 8px;
+              border-radius: 4px;
+              border: 1px solid #bee3f8;
+            }
+            .amount {
+              font-size: 14px;
+              font-weight: bold;
+              color: #2b6cb0;
+            }
+            .signature-section { 
+              margin-top: 20px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+            }
+            .signature-box { 
+              text-align: center;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              padding: 8px;
+              background: #f8fafc;
+            }
+            .signature-line { 
+              border-bottom: 2px solid #4a5568;
+              margin: 15px 0 8px 0;
+              height: 20px;
+            }
+            .signature-label {
+              font-size: 10px;
+              font-weight: 600;
+              color: #4a5568;
+            }
+            .terms-section {
+              grid-column: 1 / -1;
+              background: #fff8f0;
+              border: 1px solid #f6ad55;
+              border-radius: 6px;
+              padding: 10px;
+            }
+            .footer {
+              margin-top: 15px;
+              text-align: center;
+              font-size: 9px;
+              color: #718096;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 8px;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 12px;
+              font-size: 9px;
+              font-weight: bold;
+              background: #48bb78;
+              color: white;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 class="contract-title">
+                ${direction === "rtl" ? "عقد إيجار عقاري" : "PROPERTY LEASE AGREEMENT"}
+              </h1>
+              <p class="contract-subtitle">
+                ${direction === "rtl" ? "عقد إيجار رسمي" : "Official Rental Contract"} • 
+                <span class="status-badge">${lease.status.toUpperCase()}</span>
+              </p>
+            </div>
+
+            <div class="content-grid">
+              <div class="section">
+                <h2 class="section-title">
+                  ${direction === "rtl" ? "👤 معلومات المستأجر" : "👤 TENANT INFORMATION"}
+                </h2>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "الاسم" : "Name"}:</span>
+                  <span class="value">${lease.tenant}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "البريد الإلكتروني" : "Email"}:</span>
+                  <span class="value">${lease.tenantEmail}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "الهاتف" : "Phone"}:</span>
+                  <span class="value">${lease.tenantPhone}</span>
+                </div>
+              </div>
+
+              <div class="section">
+                <h2 class="section-title">
+                  ${direction === "rtl" ? "🏢 معلومات العقار" : "🏢 PROPERTY DETAILS"}
+                </h2>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "رقم الوحدة" : "Unit"}:</span>
+                  <span class="value">${lease.unit}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "النوع" : "Type"}:</span>
+                  <span class="value">${lease.type}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "المرافق" : "Utilities"}:</span>
+                  <span class="value">${lease.utilities || "Not specified"}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "الموقف" : "Parking"}:</span>
+                  <span class="value">${lease.parking || "Not included"}</span>
+                </div>
+              </div>
+
+              <div class="section">
+                <h2 class="section-title">
+                  ${direction === "rtl" ? "📅 فترة الإيجار" : "📅 LEASE PERIOD"}
+                </h2>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "تاريخ البداية" : "Start Date"}:</span>
+                  <span class="value">${new Date(lease.startDate).toLocaleDateString(
+                    direction === "rtl" ? "ar-EG" : "en-US",
+                    { year: "numeric", month: "short", day: "numeric" }
+                  )}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "تاريخ النهاية" : "End Date"}:</span>
+                  <span class="value">${new Date(lease.endDate).toLocaleDateString(
+                    direction === "rtl" ? "ar-EG" : "en-US",
+                    { year: "numeric", month: "short", day: "numeric" }
+                  )}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "المدة" : "Duration"}:</span>
+                  <span class="value">${Math.ceil(
+                    (new Date(lease.endDate) - new Date(lease.startDate)) / (1000 * 60 * 60 * 24 * 30)
+                  )} ${direction === "rtl" ? "شهر" : "months"}</span>
+                </div>
+              </div>
+
+              <div class="terms-section">
+                <h2 class="section-title">
+                  ${direction === "rtl" ? "📋 الشروط والأحكام" : "📋 TERMS & CONDITIONS"}
+                </h2>
+                <div class="info-row">
+                  <span class="label">${direction === "rtl" ? "سياسة الحيوانات" : "Pet Policy"}:</span>
+                  <span class="value">${lease.petPolicy || "No pets allowed"}</span>
+                </div>
+                ${lease.notes ? `
+                  <div class="info-row">
+                    <span class="label">${direction === "rtl" ? "ملاحظات" : "Notes"}:</span>
+                    <span class="value">${lease.notes}</span>
+                  </div>
+                ` : ""}
+              </div>
+            </div>
+
+            <div class="financial">
+              <h2 class="section-title">
+                ${direction === "rtl" ? "💰 المعلومات المالية" : "💰 FINANCIAL DETAILS"}
+              </h2>
+              <div class="financial-grid">
+                <div class="financial-item">
+                  <div class="label">${direction === "rtl" ? "الإيجار الشهري" : "Monthly Rent"}</div>
+                  <div class="amount">$${lease.rent?.toLocaleString()}</div>
+                </div>
+                <div class="financial-item">
+                  <div class="label">${direction === "rtl" ? "مبلغ الضمان" : "Security Deposit"}</div>
+                  <div class="amount">$${lease.deposit?.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="signature-section">
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <p class="signature-label">${direction === "rtl" ? "توقيع المستأجر" : "TENANT SIGNATURE"}</p>
+                <p style="font-size: 9px; color: #718096; margin-top: 3px;">
+                  ${direction === "rtl" ? "التاريخ: ___________" : "Date: ___________"}
+                </p>
+              </div>
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <p class="signature-label">${direction === "rtl" ? "توقيع المالك/الوكيل" : "LANDLORD/AGENT SIGNATURE"}</p>
+                <p style="font-size: 9px; color: #718096; margin-top: 3px;">
+                  ${direction === "rtl" ? "التاريخ: ___________" : "Date: ___________"}
+                </p>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>
+                ${direction === "rtl" ? "تم إنشاء هذا العقد في" : "Contract generated on"} 
+                ${new Date().toLocaleDateString(direction === "rtl" ? "ar-EG" : "en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric"
+                })} | 
+                ${direction === "rtl" ? "عقد رقم" : "Contract ID"}: ${lease.id || Math.random().toString(36).substr(2, 9).toUpperCase()}
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -173,6 +524,7 @@ const Leases = () => {
               <Button
                 size="sm"
                 className="shadow-sm hover:shadow-md transition-shadow"
+                onClick={handleAddNew}
               >
                 <Plus
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
@@ -363,7 +715,11 @@ const Leases = () => {
                           <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                             <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                           </div>
-                          <div className={`${direction === "rtl" ? "mr-4" : "ml-4"}`}>
+                          <div
+                            className={`${
+                              direction === "rtl" ? "mr-4" : "ml-4"
+                            }`}
+                          >
                             <div className="text-sm font-medium text-gray-900 dark:text-white">
                               {lease.tenant}
                             </div>
@@ -387,10 +743,26 @@ const Leases = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {new Date(lease.startDate).toLocaleDateString()}
+                        {new Date(lease.startDate).toLocaleDateString(
+                          direction === "rtl" ? "ar-EG" : "en-US",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            calendar: "gregory",
+                          }
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {new Date(lease.endDate).toLocaleDateString()}
+                        {new Date(lease.endDate).toLocaleDateString(
+                          direction === "rtl" ? "ar-EG" : "en-US",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            calendar: "gregory",
+                          }
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -418,7 +790,7 @@ const Leases = () => {
                             size="sm"
                             variant="outline"
                             title={t("leases.viewLease")}
-                            onClick={() => console.log("View lease:", lease.id)}
+                            onClick={() => handleView(lease)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -426,17 +798,21 @@ const Leases = () => {
                             size="sm"
                             variant="outline"
                             title={t("leases.editLease")}
-                            onClick={() => console.log("Edit lease:", lease.id)}
+                            onClick={() => handleEdit(lease)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            title={t("leases.sendReminder")}
-                            onClick={() => console.log("Send reminder:", lease.id)}
+                            title={
+                              direction === "rtl"
+                                ? "طباعة العقد"
+                                : "Print Contract"
+                            }
+                            onClick={() => handlePrint(lease)}
                           >
-                            <Mail className="h-4 w-4" />
+                            <Printer className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>
@@ -464,6 +840,25 @@ const Leases = () => {
               {t("leases.tryDifferentSearch")}
             </p>
           </motion.div>
+        )}
+
+        {/* Modals */}
+        {showForm && (
+          <LeaseForm
+            lease={editingLease}
+            onSave={handleSaveLease}
+            onClose={handleCloseForm}
+            isEdit={!!editingLease}
+          />
+        )}
+
+        {showViewModal && selectedLease && (
+          <LeaseViewModal
+            lease={selectedLease}
+            onClose={handleCloseViewModal}
+            onEdit={handleEdit}
+            onPrint={handlePrint}
+          />
         )}
       </div>
     </div>

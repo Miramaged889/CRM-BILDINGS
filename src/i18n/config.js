@@ -27,6 +27,10 @@ const resources = {
       "nav.calendar": "Calendar",
       "nav.settings": "Settings",
       "nav.logout": "Logout",
+      "nav.buildings": "Buildings",
+      "nav.owners": "Owners",
+      "nav.contracts": "Contracts owner",
+      "nav.reviews": "Reviews",
 
       // Auth
       "auth.login": "Login",
@@ -119,6 +123,7 @@ const resources = {
       "tenants.status": "Status",
       "tenants.active": "Active",
       "tenants.inactive": "Inactive",
+      "tenants.tenant": "Tenant",
 
       // Common
       "common.search": "Search...",
@@ -598,6 +603,10 @@ const resources = {
       "nav.calendar": "التقويم",
       "nav.settings": "الإعدادات",
       "nav.logout": "تسجيل الخروج",
+      "nav.buildings": "المباني",
+      "nav.owners": "المالكين",
+      "nav.contracts": "العقود المالكين",
+      "nav.reviews": "التقييمات",
 
       // Auth
       "auth.login": "تسجيل الدخول",
@@ -721,6 +730,7 @@ const resources = {
       "tenants.recentActivity": "النشاط الأخير",
       "tenants.noTenantsFound": "لا يوجد مستأجرين",
       "tenants.tryDifferentSearch": "جرب معايير بحث مختلفة",
+      "tenants.tenant": "المستأجر",
 
       // Common
       "common.search": "بحث...",

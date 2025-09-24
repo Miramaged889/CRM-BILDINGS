@@ -1,11 +1,20 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { useLanguageStore } from "../../stores/languageStore";
-import { Search, Plus, Filter, Eye, Edit, Trash2, Wrench, CheckCircle } from "lucide-react";
-import Card from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
-import Input from "../../components/ui/Input";
+import { useLanguageStore } from "../../../stores/languageStore";
+import {
+  Search,
+  Plus,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
+  Wrench,
+  CheckCircle,
+} from "lucide-react";
+import Card from "../../../components/ui/Card";
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
 import { Link } from "react-router-dom";
 
 const Units = () => {
@@ -13,6 +22,8 @@ const Units = () => {
   const { direction } = useLanguageStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [districtFilter, setDistrictFilter] = useState("all");
 
   const units = [
     {
@@ -22,6 +33,8 @@ const Units = () => {
       status: "occupied",
       rent: 1200,
       tenant: "John Smith",
+      city: "Dubai",
+      district: "Downtown",
       image:
         "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -32,6 +45,8 @@ const Units = () => {
       status: "available",
       rent: 1150,
       tenant: null,
+      city: "Dubai",
+      district: "Downtown",
       image:
         "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -42,6 +57,8 @@ const Units = () => {
       status: "occupied",
       rent: 2500,
       tenant: "Sarah Johnson",
+      city: "Dubai",
+      district: "Palm Jumeirah",
       image:
         "https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -52,6 +69,8 @@ const Units = () => {
       status: "maintenance",
       rent: 1800,
       tenant: null,
+      city: "Cairo",
+      district: "Zamalek",
       image:
         "https://images.pexels.com/photos/1957477/pexels-photo-1957477.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -62,6 +81,8 @@ const Units = () => {
       status: "available",
       rent: 2200,
       tenant: null,
+      city: "Cairo",
+      district: "Maadi",
       image:
         "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -72,6 +93,8 @@ const Units = () => {
       status: "occupied",
       rent: 1300,
       tenant: "Mike Davis",
+      city: "Dubai",
+      district: "Marina",
       image:
         "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -85,6 +108,10 @@ const Units = () => {
       "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
   };
 
+  // Get unique cities and districts for filter options
+  const cities = [...new Set(units.map((unit) => unit.city))];
+  const districts = [...new Set(units.map((unit) => unit.district))];
+
   const filteredUnits = units.filter((unit) => {
     const matchesSearch =
       unit.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -92,7 +119,10 @@ const Units = () => {
         unit.tenant.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus =
       statusFilter === "all" || unit.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCity = cityFilter === "all" || unit.city === cityFilter;
+    const matchesDistrict =
+      districtFilter === "all" || unit.district === districtFilter;
+    return matchesSearch && matchesStatus && matchesCity && matchesDistrict;
   });
 
   return (
@@ -126,7 +156,8 @@ const Units = () => {
         transition={{ delay: 0.1 }}
       >
         <Card className="p-6 shadow-lg border-0 bg-white dark:bg-gray-800">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="space-y-4">
+            {/* Search Bar */}
             <div className="flex-1 relative">
               <Search
                 className={`absolute ${
@@ -143,16 +174,96 @@ const Units = () => {
                 } py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200`}
               />
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
-            >
-              <option value="all">{t("units.allStatus")}</option>
-              <option value="available">{t("units.available")}</option>
-              <option value="occupied">{t("units.occupied")}</option>
-              <option value="maintenance">{t("units.maintenance")}</option>
-            </select>
+
+            {/* Filter Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "الحالة" : "Status"}
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                >
+                  <option value="all">
+                    {direction === "rtl" ? "جميع الحالات" : "All Status"}
+                  </option>
+                  <option value="available">
+                    {direction === "rtl" ? "متاح" : "Available"}
+                  </option>
+                  <option value="occupied">
+                    {direction === "rtl" ? "مؤجر" : "Occupied"}
+                  </option>
+                  <option value="maintenance">
+                    {direction === "rtl" ? "صيانة" : "Maintenance"}
+                  </option>
+                </select>
+              </div>
+
+              {/* City Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "المدينة" : "City"}
+                </label>
+                <select
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                >
+                  <option value="all">
+                    {direction === "rtl" ? "جميع المدن" : "All Cities"}
+                  </option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* District Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "الحي" : "District"}
+                </label>
+                <select
+                  value={districtFilter}
+                  onChange={(e) => setDistrictFilter(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                >
+                  <option value="all">
+                    {direction === "rtl" ? "جميع الأحياء" : "All Districts"}
+                  </option>
+                  {districts.map((district) => (
+                    <option key={district} value={district}>
+                      {district}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Clear Filters */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "الإجراءات" : "Actions"}
+                </label>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                    setCityFilter("all");
+                    setDistrictFilter("all");
+                  }}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-600 transition-all duration-200"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  {direction === "rtl" ? "مسح الفلاتر" : "Clear Filters"}
+                </Button>
+              </div>
+            </div>
           </div>
         </Card>
       </motion.div>
@@ -217,6 +328,21 @@ const Units = () => {
                   </div>
                 </div>
 
+                {/* Location Info */}
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {direction === "rtl" ? "الموقع" : "Location"}:
+                      </span>
+                    </div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {unit.district}, {unit.city}
+                    </div>
+                  </div>
+                </div>
+
                 {unit.tenant && unit.status === "occupied" && (
                   <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
@@ -239,7 +365,9 @@ const Units = () => {
                       <CheckCircle className="w-4 h-4 text-green-500" />
                       <div className="flex items-center justify-between w-full">
                         <span className="text-sm text-green-700 dark:text-green-300 font-medium">
-                          {direction === "rtl" ? "متاحة للإيجار" : "Available for Rent"}
+                          {direction === "rtl"
+                            ? "متاحة للإيجار"
+                            : "Available for Rent"}
                         </span>
                       </div>
                     </div>
@@ -252,7 +380,9 @@ const Units = () => {
                       <Wrench className="w-4 h-4 text-amber-500" />
                       <div className="flex items-center justify-between w-full">
                         <span className="text-sm text-amber-700 dark:text-amber-300 font-medium">
-                          {direction === "rtl" ? "تحت الصيانة" : "Under Maintenance"}
+                          {direction === "rtl"
+                            ? "تحت الصيانة"
+                            : "Under Maintenance"}
                         </span>
                       </div>
                     </div>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useLanguageStore } from "../../stores/languageStore";
+import { useLanguageStore } from "../../../stores/languageStore";
 import {
   ArrowLeft,
   Edit,
@@ -23,8 +23,8 @@ import {
   Clock,
   Eye,
 } from "lucide-react";
-import Card from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
+import Card from "../../../components/ui/Card";
+import Button from "../../../components/ui/Button";
 
 const UnitDetail = () => {
   const { id } = useParams();
@@ -68,14 +68,18 @@ const UnitDetail = () => {
   };
 
   const statusColors = {
-    available: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
-    occupied: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
-    maintenance: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
+    available:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
+    occupied:
+      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+    maintenance:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
   };
 
   const paymentStatusColors = {
     paid: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300",
-    pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300",
+    pending:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300",
   };
 
   return (
@@ -173,6 +177,32 @@ const UnitDetail = () => {
                       </button>
                     ))}
                   </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Map Location */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <Card className="p-0 overflow-hidden">
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <MapPin
+                      className={`h-5 w-5 ${
+                        direction === "rtl" ? "ml-2" : "mr-2"
+                      } text-red-600`}
+                    />
+                    {t("units.location")}
+                  </h3>
+                </div>
+                <div className="h-64 bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500">
+                  {/* Placeholder for real map implementation */}
+                  {direction === "rtl"
+                    ? "خريطة الموقع (لاحقاً)"
+                    : "Map location (to integrate)"}
                 </div>
               </Card>
             </motion.div>
@@ -359,9 +389,17 @@ const UnitDetail = () => {
             >
               <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
                 <div className="mb-4">
-                  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-between ${direction === "rtl" ? "flex-row" : ""}`}>
+                  <h3
+                    className={`text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-between ${
+                      direction === "rtl" ? "flex-row" : ""
+                    }`}
+                  >
                     <span className="flex items-center">
-                      <DollarSign className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"} text-green-600`} />
+                      <DollarSign
+                        className={`h-4 w-4 ${
+                          direction === "rtl" ? "ml-2" : "mr-2"
+                        } text-green-600`}
+                      />
                       {t("units.rentalInformation")}
                     </span>
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">

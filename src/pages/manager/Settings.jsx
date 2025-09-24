@@ -124,7 +124,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6 ">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -606,6 +606,7 @@ const Settings = () => {
                                   ? "bg-blue-600"
                                   : "bg-gray-200 dark:bg-gray-600"
                               }`}
+                              dir="ltr"
                             >
                               <span
                                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -665,7 +666,9 @@ const Settings = () => {
                               <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                className={`absolute inset-y-0 ${
+                                  direction === "rtl" ? "left-0 pl-3" : "right-0 pr-3"
+                                } flex items-center`}
                               >
                                 {showPassword ? (
                                   <EyeOff className="h-4 w-4 text-gray-400" />
@@ -689,7 +692,9 @@ const Settings = () => {
                                 onClick={() =>
                                   setShowNewPassword(!showNewPassword)
                                 }
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                className={`absolute inset-y-0 ${
+                                  direction === "rtl" ? "left-0 pl-3" : "right-0 pr-3"
+                                } flex items-center`}
                               >
                                 {showNewPassword ? (
                                   <EyeOff className="h-4 w-4 text-gray-400" />
@@ -713,7 +718,9 @@ const Settings = () => {
                                 onClick={() =>
                                   setShowConfirmPassword(!showConfirmPassword)
                                 }
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                className={`absolute inset-y-0 ${
+                                  direction === "rtl" ? "left-0 pl-3" : "right-0 pr-3"
+                                } flex items-center`}
                               >
                                 {showConfirmPassword ? (
                                   <EyeOff className="h-4 w-4 text-gray-400" />
@@ -947,6 +954,7 @@ const Settings = () => {
                                 ? "bg-blue-600"
                                 : "bg-gray-200 dark:bg-gray-600"
                             }`}
+                            dir="ltr"
                           >
                             <span
                               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
