@@ -200,14 +200,14 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
       <motion.div
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
-        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
       >
         <Card className="p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {isEdit
                     ? direction === "rtl"
                       ? "تعديل المراجعة"
@@ -216,7 +216,7 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                     ? "إضافة مراجعة جديدة"
                     : "Add New Review"}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                   {direction === "rtl"
                     ? "املأ البيانات التالية لإضافة مراجعة جديدة"
                     : "Fill in the following information to add a new review"}
@@ -224,20 +224,24 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
               </div>
               <button
                 onClick={onCancel}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors self-start sm:self-auto"
               >
-                <X className="h-5 w-5 text-gray-500" />
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Basic Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                  <User className={`h-5 w-5 text-blue-600 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                  <User
+                    className={`h-5 w-5 text-blue-600 dark:text-blue-400 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
                   {direction === "rtl"
                     ? "المعلومات الأساسية"
                     : "Basic Information"}
@@ -250,8 +254,8 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                   <select
                     value={formData.tenantId || ""}
                     onChange={(e) => handleTenantChange(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                      errors.tenant ? "border-red-500" : ""
+                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors ${
+                      errors.tenant ? "border-red-500 dark:border-red-400" : ""
                     }`}
                   >
                     <option value="">
@@ -264,7 +268,9 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                     ))}
                   </select>
                   {errors.tenant && (
-                    <p className="text-red-500 text-sm mt-1">{errors.tenant}</p>
+                    <p className="text-red-500 dark:text-red-400 text-sm mt-1">
+                      {errors.tenant}
+                    </p>
                   )}
                 </div>
 
@@ -310,7 +316,7 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                     type="date"
                     value={formData.date}
                     onChange={(e) => handleInputChange("date", e.target.value)}
-                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
               </div>
@@ -318,7 +324,11 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
               {/* Review Details */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                  <MessageSquare className={`h-5 w-5 text-green-600 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                  <MessageSquare
+                    className={`h-5 w-5 text-green-600 dark:text-green-400 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
                   {direction === "rtl" ? "تفاصيل المراجعة" : "Review Details"}
                 </h3>
 
@@ -326,24 +336,34 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {direction === "rtl" ? "التقييم" : "Rating"}
                   </label>
-                  <div className={`flex items-center space-x-2 ${direction === "rtl" ? "space-x-reverse" : ""}`}>
+                  <div
+                    className={`flex items-center ${
+                      direction === "rtl"
+                        ? "space-x-reverse space-x-2"
+                        : "space-x-2"
+                    }`}
+                  >
                     {Array.from({ length: 5 }).map((_, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => handleInputChange("rating", i + 1)}
-                        className="focus:outline-none"
+                        className="focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 rounded transition-all"
                       >
                         <Star
                           className={`h-8 w-8 transition-colors ${
                             i < formData.rating
-                              ? "text-amber-500 fill-amber-500"
+                              ? "text-amber-500 fill-amber-500 dark:text-amber-400 dark:fill-amber-400"
                               : "text-gray-300 dark:text-gray-600"
                           }`}
                         />
                       </button>
                     ))}
-                    <span className={`text-sm text-gray-600 dark:text-gray-400 ${direction === "rtl" ? "mr-2" : "ml-2"}`}>
+                    <span
+                      className={`text-sm text-gray-600 dark:text-gray-400 ${
+                        direction === "rtl" ? "mr-2" : "ml-2"
+                      }`}
+                    >
                       {formData.rating} {direction === "rtl" ? "نجمة" : "Star"}
                       {formData.rating > 1
                         ? direction === "rtl"
@@ -353,7 +373,9 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                     </span>
                   </div>
                   {errors.rating && (
-                    <p className="text-red-500 text-sm mt-1">{errors.rating}</p>
+                    <p className="text-red-500 dark:text-red-400 text-sm mt-1">
+                      {errors.rating}
+                    </p>
                   )}
                 </div>
 
@@ -371,10 +393,10 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                           onClick={() =>
                             handleInputChange("status", status.value)
                           }
-                          className={`p-3 rounded-lg border-2 transition-all ${
+                          className={`p-3 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
                             formData.status === status.value
-                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                              ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                           }`}
                         >
                           <IconComponent className="h-5 w-5 mx-auto mb-1" />
@@ -396,7 +418,7 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                     onChange={(e) =>
                       handleInputChange("category", e.target.value)
                     }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
                   >
                     {categories.map((category) => (
                       <option key={category.value} value={category.value}>
@@ -422,28 +444,41 @@ const ReviewForm = ({ review = null, onSave, onCancel, isEdit = false }) => {
                     : "Write your comment here..."
                 }
                 rows={4}
-                className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none ${
-                  errors.comment ? "border-red-500" : ""
+                className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 resize-none transition-colors ${
+                  errors.comment ? "border-red-500 dark:border-red-400" : ""
                 }`}
               />
               {errors.comment && (
-                <p className="text-red-500 text-sm mt-1">{errors.comment}</p>
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">
+                  {errors.comment}
+                </p>
               )}
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div
+              className={`flex flex-col sm:flex-row items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700 ${
+                direction === "rtl" ? "sm:flex-row-reverse" : ""
+              }`}
+            >
               <Button
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                className="px-6 py-2"
+                className="w-full sm:w-auto px-6 py-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                <X className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                <X
+                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                />
                 {direction === "rtl" ? "إلغاء" : "Cancel"}
               </Button>
-              <Button type="submit" className="px-6 py-2">
-                <Save className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+              <Button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+              >
+                <Save
+                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                />
                 {isEdit
                   ? direction === "rtl"
                     ? "حفظ التغييرات"

@@ -29,9 +29,6 @@ const managerNavItems = [
   { name: "nav.units", href: "/units", icon: "Building" },
   { name: "nav.tenants", href: "/tenants", icon: "Users" },
   { name: "nav.owners", href: "/owners", icon: "UserSquare2" },
-  { name: "nav.contracts", href: "/contracts", icon: "FileText" },
-  { name: "nav.reviews", href: "/reviews", icon: "Star" },
-  { name: "nav.leases", href: "/leases", icon: "FileText" },
   { name: "nav.payments", href: "/payments", icon: "CreditCard" },
   { name: "nav.maintenance", href: "/maintenance", icon: "Wrench" },
   { name: "nav.reports", href: "/reports", icon: "BarChart3" },
@@ -233,7 +230,9 @@ const ManagerLayout = ({ children }) => {
                     {isActive && (
                       <motion.div
                         layoutId="activeIndicator"
-                        className={`absolute ${direction === "rtl" ? "left-2" : "right-2"} w-1.5 h-1.5 bg-white rounded-full shadow-sm`}
+                        className={`absolute ${
+                          direction === "rtl" ? "left-2" : "right-2"
+                        } w-1.5 h-1.5 bg-white rounded-full shadow-sm`}
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{

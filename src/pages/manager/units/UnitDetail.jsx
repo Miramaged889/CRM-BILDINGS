@@ -67,6 +67,24 @@ const UnitDetail = () => {
     ],
   };
 
+  // Function to get localized unit type
+  const getLocalizedUnitType = (type) => {
+    if (direction === "rtl") {
+      const typeMap = {
+        apartment: "شقة",
+        villa: "فيلا",
+        office: "مكتب",
+        shop: "محل",
+        studio: "استوديو",
+        penthouse: "بنتهاوس",
+        warehouse: "مستودع",
+        retail: "تجاري",
+      };
+      return typeMap[type] || type;
+    }
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
   const statusColors = {
     available:
       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
@@ -84,7 +102,7 @@ const UnitDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -111,7 +129,7 @@ const UnitDetail = () => {
                         direction === "rtl" ? "ml-1" : "mr-1"
                       }`}
                     />
-                    {t(`units.${unit.type}`)}
+                    {getLocalizedUnitType(unit.type)}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400 flex items-center">
                     <DollarSign
@@ -223,6 +241,17 @@ const UnitDetail = () => {
                   {t("units.unitDetails")}
                 </h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <Building className="h-5 w-5 text-purple-600" />
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                        {t("units.type")}
+                      </span>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {getLocalizedUnitType(unit.type)}
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <Bed className="h-5 w-5 text-blue-600" />
                     <div>

@@ -218,14 +218,14 @@ const LeaseForm = ({ lease, onSave, onClose, isEdit = false }) => {
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
         exit={{ scale: 0.95 }}
-        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
       >
         <Card className="p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {isEdit
                     ? direction === "rtl"
                       ? "تعديل عقد الإيجار"
@@ -234,7 +234,7 @@ const LeaseForm = ({ lease, onSave, onClose, isEdit = false }) => {
                     ? "إضافة عقد إيجار جديد"
                     : "Add New Lease"}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                   {direction === "rtl"
                     ? "إدارة معلومات عقد الإيجار"
                     : "Manage lease information"}
@@ -242,7 +242,7 @@ const LeaseForm = ({ lease, onSave, onClose, isEdit = false }) => {
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors self-start sm:self-auto"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -250,9 +250,9 @@ const LeaseForm = ({ lease, onSave, onClose, isEdit = false }) => {
           </div>
 
           {/* Form Content */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6">
             {/* Tenant Information */}
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <User
                   className={`h-5 w-5 text-blue-600 ${
@@ -263,7 +263,7 @@ const LeaseForm = ({ lease, onSave, onClose, isEdit = false }) => {
                   ? "معلومات المستأجر"
                   : "Tenant Information"}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {direction === "rtl" ? "اسم المستأجر" : "Tenant Name"} *
@@ -723,19 +723,19 @@ const LeaseForm = ({ lease, onSave, onClose, isEdit = false }) => {
             </Card>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="px-6 py-2"
+                className="w-full sm:w-auto px-6 py-2"
               >
                 <X
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
                 {direction === "rtl" ? "إلغاء" : "Cancel"}
               </Button>
-              <Button type="submit" className="px-6 py-2">
+              <Button type="submit" className="w-full sm:w-auto px-6 py-2">
                 <Save
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />

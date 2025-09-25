@@ -19,9 +19,7 @@ import {
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
-import {
-  OwnerForm,
-} from "../../../components/forms/manger form";
+import { OwnerForm } from "../../../components/manger form";
 
 const Owners = () => {
   const { t } = useTranslation();
@@ -48,6 +46,29 @@ const Owners = () => {
       monthlyRevenue: 8500,
       avatar:
         "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
+      contracts: [
+        {
+          id: 1,
+          contractNumber: "CON-001",
+          status: "active",
+          startDate: "2024-01-01",
+          endDate: "2024-12-31",
+        },
+        {
+          id: 2,
+          contractNumber: "CON-002",
+          status: "active",
+          startDate: "2024-02-15",
+          endDate: "2025-02-14",
+        },
+        {
+          id: 3,
+          contractNumber: "CON-003",
+          status: "expired",
+          startDate: "2023-06-01",
+          endDate: "2024-05-31",
+        },
+      ],
     },
     {
       id: 2,
@@ -63,6 +84,22 @@ const Owners = () => {
       monthlyRevenue: 3200,
       avatar:
         "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
+      contracts: [
+        {
+          id: 4,
+          contractNumber: "CON-004",
+          status: "active",
+          startDate: "2024-03-01",
+          endDate: "2025-02-28",
+        },
+        {
+          id: 5,
+          contractNumber: "CON-005",
+          status: "expired",
+          startDate: "2023-09-15",
+          endDate: "2024-09-14",
+        },
+      ],
     },
     {
       id: 3,
@@ -78,6 +115,29 @@ const Owners = () => {
       monthlyRevenue: 5200,
       avatar:
         "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
+      contracts: [
+        {
+          id: 6,
+          contractNumber: "CON-006",
+          status: "active",
+          startDate: "2024-01-15",
+          endDate: "2025-01-14",
+        },
+        {
+          id: 7,
+          contractNumber: "CON-007",
+          status: "active",
+          startDate: "2024-05-01",
+          endDate: "2025-04-30",
+        },
+        {
+          id: 8,
+          contractNumber: "CON-008",
+          status: "expired",
+          startDate: "2023-08-01",
+          endDate: "2024-07-31",
+        },
+      ],
     },
   ];
 
@@ -100,12 +160,14 @@ const Owners = () => {
     setShowViewModal(true);
   };
 
-  const handleEdit = (owner) => {
+  const handleEdit = (owner, event) => {
+    event.stopPropagation();
     setEditingOwner(owner);
     setShowForm(true);
   };
 
-  const handleDelete = (owner) => {
+  const handleDelete = (owner, event) => {
+    event.stopPropagation();
     if (
       window.confirm(
         direction === "rtl"
@@ -116,6 +178,15 @@ const Owners = () => {
       console.log("Delete owner:", owner);
       // In real app, this would call API to delete
     }
+  };
+
+  const handleCardClick = (owner) => {
+    navigate(`/owners/${owner.id}`);
+  };
+
+  const handleViewDetails = (owner, event) => {
+    event.stopPropagation();
+    navigate(`/owners/${owner.id}`);
   };
 
   const handleAddNew = () => {
@@ -164,7 +235,7 @@ const Owners = () => {
           <Plus
             className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
           />
-          {direction === "rtl" ? "اضافة مالك" : "Add Owner"}
+          {direction === "rtl" ? "إضافة مالك" : "Add Owner"}
         </Button>
       </motion.div>
 
@@ -197,9 +268,16 @@ const Owners = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.06 + 0.1 }}
           >
-            <Card className="p-6 hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-gray-800">
+            <Card
+              className="p-6 hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-gray-800 cursor-pointer hover:scale-105"
+              onClick={() => handleCardClick(o)}
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                <div
+                  className={`flex items-center ${
+                    direction === "rtl" ? "space-x-reverse" : ""
+                  } space-x-3`}
+                >
                   <img
                     src={o.avatar}
                     alt={o.name}
@@ -225,7 +303,7 @@ const Owners = () => {
                       direction === "rtl" ? "ml-1" : "mr-1"
                     } inline`}
                   />
-                  {o.buildings} {direction === "rtl" ? "مبانٍ" : "buildings"}
+                  {o.buildings} {direction === "rtl" ? "مباني" : "buildings"}
                 </span>
               </div>
 
@@ -254,27 +332,39 @@ const Owners = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/owners/${o.id}`)}
+                  onClick={(e) => handleViewDetails(o, e)}
                   className="flex-1"
                 >
-                  <Eye className="h-4 w-4" />
+                  <Eye
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
                   {direction === "rtl" ? "عرض" : "View"}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleEdit(o)}
+                  onClick={(e) => handleEdit(o, e)}
                 >
-                  <Edit className="h-4 w-4" />
+                  <Edit
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
                   {direction === "rtl" ? "تعديل" : "Edit"}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDelete(o)}
+                  onClick={(e) => handleDelete(o, e)}
                   className="hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                  <Trash2 className="h-4 w-4 text-red-500" />
+                  <Trash2
+                    className={`h-4 w-4 text-red-500 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
                   {direction === "rtl" ? "حذف" : "Delete"}
                 </Button>
               </div>

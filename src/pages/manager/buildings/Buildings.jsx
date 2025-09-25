@@ -11,11 +11,13 @@ import {
   Building2,
   Edit,
   Trash2,
+  Share,
+  ExternalLink,
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
-import { BuildingForm } from "../../../components/forms/manger form";
+import { BuildingForm } from "../../../components/manger form";
 
 const Buildings = () => {
   const { direction } = useLanguageStore();
@@ -223,6 +225,30 @@ const Buildings = () => {
     setShowForm(true);
   };
 
+  const handleShare = (building) => {
+    if (navigator.share) {
+      navigator.share({
+        title: building.name,
+        text: `${building.name} - ${building.address}`,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      const shareText = `${building.name} - ${building.address}`;
+      navigator.clipboard.writeText(shareText).then(() => {
+        alert(
+          direction === "rtl" ? "تم نسخ الرابط" : "Link copied to clipboard"
+        );
+      });
+    }
+  };
+
+  const handleLocationClick = (building) => {
+    if (building.locationLink) {
+      window.open(building.locationLink, "_blank");
+    }
+  };
+
   const handleSaveBuilding = (buildingData) => {
     console.log("Saving building:", buildingData);
     setShowForm(false);
@@ -409,8 +435,15 @@ const Buildings = () => {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                       {b.name}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center mb-1">
+                    <p
+                      className="text-sm text-gray-500 dark:text-gray-400 flex items-center mb-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLocationClick(b);
+                      }}
+                    >
                       <MapPin className="h-4 w-4 mr-1" /> {b.address}
+                      <ExternalLink className="h-3 w-3 ml-1" />
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
                       {b.district}, {b.city}
@@ -418,21 +451,29 @@ const Buildings = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {b.totalUnits}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {direction === "rtl" ? "إجمالي الوحدات" : "Total Units"}
                     </p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {Math.round((b.occupiedUnits / b.totalUnits) * 100)}%
+                      {b.occupiedUnits}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "معدل الإشغال" : "Occupancy"}
+                    <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                      {direction === "rtl" ? "مؤجرة" : "Occupied"}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      {b.vacantUnits}
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                      {direction === "rtl" ? "شاغرة" : "Vacant"}
                     </p>
                   </div>
                 </div>
@@ -449,6 +490,16 @@ const Buildings = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare(b);
+                      }}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      title={direction === "rtl" ? "مشاركة" : "Share"}
+                    >
+                      <Share className="h-4 w-4 text-gray-400" />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

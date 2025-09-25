@@ -142,22 +142,6 @@ const LoginPage = () => {
                   </span>
                 </p>
               </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() =>
-                  fillCredentials("staff@realestate.com", "staff123")
-                }
-                className="p-2 bg-white dark:bg-gray-600 rounded-lg cursor-pointer border border-gray-200 dark:border-gray-500 hover:border-primary-300 dark:hover:border-primary-400 transition-all duration-200 hover:shadow-sm"
-              >
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  <strong className="text-primary-600 dark:text-primary-400">
-                    Staff:
-                  </strong>
-                  <span className="ml-1">staff@realestate.com / staff123</span>
-                </p>
-              </motion.div>
             </div>
           </motion.div>
         </Card>

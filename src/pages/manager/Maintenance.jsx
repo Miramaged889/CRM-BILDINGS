@@ -5,7 +5,6 @@ import {
   Plus,
   Search,
   Wrench,
-  CheckCircle,
   User,
   Eye,
   Edit,
@@ -16,14 +15,18 @@ import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Icon from "../../components/ui/Icon";
-import { MaintenanceForm } from "../../components/forms/manger form";
+import {
+  MaintenanceForm,
+  MaintenanceViewModal,
+} from "../../components/manger form";
 
 const Maintenance = () => {
   const { t, i18n } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState(null);
-  const [completedRequests, setCompletedRequests] = useState(new Set());
+  const [viewingMaintenance, setViewingMaintenance] = useState(null);
 
   const direction = i18n.language === "ar" ? "rtl" : "ltr";
 
@@ -36,6 +39,22 @@ const Maintenance = () => {
       tenant: "John Smith",
       date: "2024-01-15",
       description: "Kitchen faucet has been dripping for 3 days",
+      completedBy: "Ahmed Hassan",
+      amount: 150.0,
+      photos: [
+        {
+          id: 1,
+          name: "before_repair.jpg",
+          url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
+          uploadedAt: "2024-01-15T10:30:00Z",
+        },
+        {
+          id: 2,
+          name: "after_repair.jpg",
+          url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
+          uploadedAt: "2024-01-15T14:30:00Z",
+        },
+      ],
     },
     {
       id: 2,
@@ -44,6 +63,16 @@ const Maintenance = () => {
       tenant: "Sarah Johnson",
       date: "2024-01-14",
       description: "AC unit not cooling properly, temperature rising",
+      completedBy: "Mohamed Ali",
+      amount: 300.0,
+      photos: [
+        {
+          id: 3,
+          name: "ac_unit.jpg",
+          url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
+          uploadedAt: "2024-01-14T09:15:00Z",
+        },
+      ],
     },
     {
       id: 3,
@@ -52,6 +81,22 @@ const Maintenance = () => {
       tenant: "Mike Davis",
       date: "2024-01-13",
       description: "Front door lock needs to be replaced",
+      completedBy: "Omar Khalil",
+      amount: 200.0,
+      photos: [
+        {
+          id: 4,
+          name: "old_lock.jpg",
+          url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
+          uploadedAt: "2024-01-13T11:00:00Z",
+        },
+        {
+          id: 5,
+          name: "new_lock.jpg",
+          url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
+          uploadedAt: "2024-01-13T15:30:00Z",
+        },
+      ],
     },
     {
       id: 4,
@@ -60,6 +105,16 @@ const Maintenance = () => {
       tenant: "Emma Wilson",
       date: "2024-01-12",
       description: "Bathroom heater not working during winter",
+      completedBy: "Hassan Mohamed",
+      amount: 180.0,
+      photos: [
+        {
+          id: 6,
+          name: "heater_repair.jpg",
+          url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
+          uploadedAt: "2024-01-12T13:45:00Z",
+        },
+      ],
     },
   ];
 
@@ -94,15 +149,14 @@ const Maintenance = () => {
     setEditingMaintenance(null);
   };
 
-  const handleComplete = (requestId) => {
-    // In a real app, this would update the backend
-    console.log("Completing maintenance request:", requestId);
-    setCompletedRequests(prev => new Set([...prev, requestId]));
-    alert(
-      direction === "rtl"
-        ? "تم إكمال طلب الصيانة بنجاح"
-        : "Maintenance request completed successfully"
-    );
+  const handleView = (maintenance) => {
+    setViewingMaintenance(maintenance);
+    setShowViewModal(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setShowViewModal(false);
+    setViewingMaintenance(null);
   };
 
   return (
@@ -207,15 +261,11 @@ const Maintenance = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-300 group ${
-                    completedRequests.has(request.id) ? 'opacity-70' : ''
-                  }`}
+                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-300 group"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h4 className={`text-lg font-semibold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${
-                        completedRequests.has(request.id) ? 'line-through text-gray-500 dark:text-gray-400' : ''
-                      }`}>
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {request.title}
                       </h4>
                       <div
@@ -236,11 +286,6 @@ const Maintenance = () => {
                         </div>
                       </div>
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${
-                      completedRequests.has(request.id) 
-                        ? 'bg-green-400' 
-                        : 'bg-yellow-400 animate-pulse'
-                    }`}></div>
                   </div>
 
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 line-clamp-3 leading-relaxed">
@@ -248,7 +293,11 @@ const Maintenance = () => {
                   </p>
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <div className={`flex items-center space-x-2 ${direction === "rtl" ? "space-x-reverse" : ""}`}>
+                    <div
+                      className={`flex items-center space-x-2 ${
+                        direction === "rtl" ? "space-x-reverse" : ""
+                      }`}
+                    >
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(request.date).toLocaleDateString()}
@@ -263,6 +312,7 @@ const Maintenance = () => {
                         size="sm"
                         variant="outline"
                         className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+                        onClick={() => handleView(request)}
                         title={
                           direction === "rtl" ? "عرض التفاصيل" : "View Details"
                         }
@@ -279,22 +329,6 @@ const Maintenance = () => {
                         }
                       >
                         <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={`border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-700/20 hover:border-green-400 dark:hover:border-green-500 transition-all duration-200 hover:scale-105 ${
-                          completedRequests.has(request.id) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        onClick={() => handleComplete(request.id)}
-                        disabled={completedRequests.has(request.id)}
-                        title={
-                          direction === "rtl"
-                            ? completedRequests.has(request.id) ? "مكتمل" : "إكمال الطلب"
-                            : completedRequests.has(request.id) ? "Completed" : "Complete Request"
-                        }
-                      >
-                        <CheckCircle className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -324,6 +358,15 @@ const Maintenance = () => {
           onSave={handleSaveMaintenance}
           onCancel={handleCloseForm}
           isEdit={!!editingMaintenance}
+        />
+      )}
+
+      {/* Maintenance View Modal */}
+      {showViewModal && viewingMaintenance && (
+        <MaintenanceViewModal
+          maintenance={viewingMaintenance}
+          onClose={handleCloseViewModal}
+          onEdit={handleEdit}
         />
       )}
     </div>

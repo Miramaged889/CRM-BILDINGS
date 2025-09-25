@@ -20,12 +20,15 @@ import {
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Avatar from "../../../components/ui/Avatar";
+import { TenantForm } from "../../../components/manger form";
 
 const TenantList = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editingTenant, setEditingTenant] = useState(null);
 
   const tenants = [
     {
@@ -137,9 +140,31 @@ const TenantList = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const handleAddNew = () => {
+    setEditingTenant(null);
+    setShowForm(true);
+  };
+
+  const handleEdit = (tenant) => {
+    setEditingTenant(tenant);
+    setShowForm(true);
+  };
+
+  const handleSaveTenant = (tenantData) => {
+    // In a real app, this would save to the backend
+    console.log("Saving tenant:", tenantData);
+    setShowForm(false);
+    setEditingTenant(null);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingTenant(null);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -158,18 +183,9 @@ const TenantList = () => {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
-                variant="outline"
                 size="sm"
                 className="shadow-sm hover:shadow-md transition-shadow"
-              >
-                <Filter
-                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
-                />
-                {t("common.filter")}
-              </Button>
-              <Button
-                size="sm"
-                className="shadow-sm hover:shadow-md transition-shadow"
+                onClick={handleAddNew}
               >
                 <Plus
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
@@ -237,15 +253,6 @@ const TenantList = () => {
                         size="lg"
                         className="ring-2 ring-primary-200 dark:ring-primary-800"
                       />
-                      <div
-                        className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-gray-800 ${
-                          tenant.status === "active"
-                            ? "bg-green-500"
-                            : tenant.status === "inactive"
-                            ? "bg-red-500"
-                            : "bg-amber-500"
-                        }`}
-                      ></div>
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -256,13 +263,6 @@ const TenantList = () => {
                       </p>
                     </div>
                   </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                      tenant.status
-                    )}`}
-                  >
-                    {t(`tenants.${tenant.status}`)}
-                  </span>
                 </div>
 
                 <div className="space-y-3 mb-4">
@@ -312,16 +312,11 @@ const TenantList = () => {
                       size="sm"
                       variant="outline"
                       title={t("tenants.edit")}
+                      onClick={() => handleEdit(tenant)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      title={t("tenants.sendEmail")}
-                    >
-                      <Mail className="h-4 w-4" />
-                    </Button>
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -352,6 +347,16 @@ const TenantList = () => {
               {t("tenants.tryDifferentSearch")}
             </p>
           </motion.div>
+        )}
+
+        {/* Tenant Form Modal */}
+        {showForm && (
+          <TenantForm
+            tenant={editingTenant}
+            onSave={handleSaveTenant}
+            onCancel={handleCloseForm}
+            isEdit={!!editingTenant}
+          />
         )}
       </div>
     </div>

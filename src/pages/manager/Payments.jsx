@@ -22,10 +22,7 @@ import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Icon from "../../components/ui/Icon";
-import {
-  PaymentForm,
-  PaymentViewModal,
-} from "../../components/forms/manger form";
+import { PaymentForm, PaymentViewModal } from "../../components/manger form";
 
 const Payments = () => {
   const { t } = useTranslation();
@@ -164,17 +161,20 @@ const Payments = () => {
       }
       return p;
     });
-    
+
     setPaymentsData(updatedPayments);
-    
+
     // Show success notification
-    const message = direction === "rtl" 
-      ? "تم تأكيد الدفع بنجاح" 
-      : "Payment confirmed successfully";
-    
+    const message =
+      direction === "rtl"
+        ? "تم تأكيد الدفع بنجاح"
+        : "Payment confirmed successfully";
+
     // Create success notification
     const notification = document.createElement("div");
-    notification.className = `fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 ${direction === "rtl" ? "right-auto left-4" : ""}`;
+    notification.className = `fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 ${
+      direction === "rtl" ? "right-auto left-4" : ""
+    }`;
     notification.innerHTML = `
       <div class="flex items-center gap-2">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -184,7 +184,7 @@ const Payments = () => {
       </div>
     `;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
       notification.remove();
     }, 3000);
@@ -603,10 +603,14 @@ const Payments = () => {
           <div class="receipt-container">
             <div class="header">
               <h1 class="receipt-title">${
-                direction === "rtl" ? "إيصال دفع الإيجار" : "Rent Payment Receipt"
+                direction === "rtl"
+                  ? "إيصال دفع الإيجار"
+                  : "Rent Payment Receipt"
               }</h1>
               <p class="receipt-subtitle">${
-                direction === "rtl" ? "إيصال رسمي معتمد" : "Official Payment Receipt"
+                direction === "rtl"
+                  ? "إيصال رسمي معتمد"
+                  : "Official Payment Receipt"
               }</p>
             </div>
 
@@ -614,15 +618,23 @@ const Payments = () => {
               <div class="section">
                 <h2 class="section-title">
                   <span class="section-icon">👤</span>
-                  ${direction === "rtl" ? "معلومات المستأجر" : "Tenant Information"}
+                  ${
+                    direction === "rtl"
+                      ? "معلومات المستأجر"
+                      : "Tenant Information"
+                  }
                 </h2>
                 <div class="info-grid">
                   <div class="info-item">
-                    <div class="label">${direction === "rtl" ? "اسم المستأجر" : "Tenant Name"}</div>
+                    <div class="label">${
+                      direction === "rtl" ? "اسم المستأجر" : "Tenant Name"
+                    }</div>
                     <div class="value">${payment.tenant}</div>
                   </div>
                   <div class="info-item">
-                    <div class="label">${direction === "rtl" ? "رقم الوحدة" : "Unit Number"}</div>
+                    <div class="label">${
+                      direction === "rtl" ? "رقم الوحدة" : "Unit Number"
+                    }</div>
                     <div class="value">${payment.unit}</div>
                   </div>
                 </div>
@@ -635,15 +647,23 @@ const Payments = () => {
                 </h2>
                 <div class="info-grid">
                   <div class="info-item">
-                    <div class="label">${direction === "rtl" ? "رقم الإيصال" : "Receipt Number"}</div>
-                    <div class="value">#${payment.id.toString().padStart(6, '0')}</div>
+                    <div class="label">${
+                      direction === "rtl" ? "رقم الإيصال" : "Receipt Number"
+                    }</div>
+                    <div class="value">#${payment.id
+                      .toString()
+                      .padStart(6, "0")}</div>
                   </div>
                   <div class="info-item">
-                    <div class="label">${direction === "rtl" ? "طريقة الدفع" : "Payment Method"}</div>
+                    <div class="label">${
+                      direction === "rtl" ? "طريقة الدفع" : "Payment Method"
+                    }</div>
                     <div class="value">${payment.method}</div>
                   </div>
                   <div class="info-item">
-                    <div class="label">${direction === "rtl" ? "تاريخ الدفع" : "Payment Date"}</div>
+                    <div class="label">${
+                      direction === "rtl" ? "تاريخ الدفع" : "Payment Date"
+                    }</div>
                     <div class="value">${
                       payment.date
                         ? new Date(payment.date).toLocaleDateString(
@@ -661,8 +681,12 @@ const Payments = () => {
                     }</div>
                   </div>
                   <div class="info-item">
-                    <div class="label">${direction === "rtl" ? "تاريخ الاستحقاق" : "Due Date"}</div>
-                    <div class="value">${new Date(payment.dueDate).toLocaleDateString(
+                    <div class="label">${
+                      direction === "rtl" ? "تاريخ الاستحقاق" : "Due Date"
+                    }</div>
+                    <div class="value">${new Date(
+                      payment.dueDate
+                    ).toLocaleDateString(
                       direction === "rtl" ? "ar-EG" : "en-US",
                       {
                         year: "numeric",
@@ -678,18 +702,30 @@ const Payments = () => {
               <div class="financial-section">
                 <h2 class="section-title">
                   <span class="section-icon">💰</span>
-                  ${direction === "rtl" ? "المعلومات المالية" : "Financial Information"}
+                  ${
+                    direction === "rtl"
+                      ? "المعلومات المالية"
+                      : "Financial Information"
+                  }
                 </h2>
                 
                 <div class="amount-display">
-                  <div class="amount-label">${direction === "rtl" ? "إجمالي المبلغ المدفوع" : "Total Amount Paid"}</div>
+                  <div class="amount-label">${
+                    direction === "rtl"
+                      ? "إجمالي المبلغ المدفوع"
+                      : "Total Amount Paid"
+                  }</div>
                   <div class="amount-value">$${payment.amount.toLocaleString()}</div>
                 </div>
               </div>
 
               <div class="footer">
                 <p class="footer-text">
-                  ${direction === "rtl" ? "تم إنشاء هذا الإيصال في" : "Receipt generated on"} 
+                  ${
+                    direction === "rtl"
+                      ? "تم إنشاء هذا الإيصال في"
+                      : "Receipt generated on"
+                  } 
                   <span class="print-date">${new Date().toLocaleDateString(
                     direction === "rtl" ? "ar-EG" : "en-US",
                     {
@@ -703,9 +739,10 @@ const Payments = () => {
                   )}</span>
                 </p>
                 <p class="footer-text" style="margin-top: 8px; font-style: italic; opacity: 0.8;">
-                  ${direction === "rtl" 
-                    ? "هذا الإيصال صالح قانونياً ومعتمد من إدارة العقارات" 
-                    : "This receipt is legally valid and certified by Property Management"
+                  ${
+                    direction === "rtl"
+                      ? "هذا الإيصال صالح قانونياً ومعتمد من إدارة العقارات"
+                      : "This receipt is legally valid and certified by Property Management"
                   }
                 </p>
               </div>

@@ -61,6 +61,13 @@ const Reports = () => {
   const [selectedReport, setSelectedReport] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [selectedOwner, setSelectedOwner] = useState("all");
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      .toISOString()
+      .split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Mock data for owners
   const availableOwners = [
@@ -71,52 +78,94 @@ const Reports = () => {
     { id: "fatima-ahmed", name: "Fatima Ahmed" },
   ];
 
+  // Generate data based on date range
+  const generateDateBasedData = () => {
+    const startDate = new Date(dateRange.startDate);
+    const endDate = new Date(dateRange.endDate);
+    const monthsDiff = Math.ceil(
+      (endDate - startDate) / (1000 * 60 * 60 * 24 * 30)
+    );
+
+    // Generate month labels based on date range
+    const monthLabels = [];
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      monthLabels.push(
+        currentDate.toLocaleDateString("en-US", { month: "short" })
+      );
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    // Generate revenue and expenses data based on date range
+    const generateMonthlyData = (baseAmount, variance = 0.2) => {
+      return monthLabels.map((_, index) => {
+        const randomFactor = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
+        return Math.round(baseAmount * randomFactor * (1 + index * 0.1));
+      });
+    };
+
+    return {
+      monthLabels,
+      monthsDiff: Math.max(1, monthsDiff),
+    };
+  };
+
   // Filter-based data generation
   const getFilteredData = () => {
+    const { monthLabels, monthsDiff } = generateDateBasedData();
+
+    // Generate dynamic data based on date range
+    const generateMonthlyData = (baseAmount, variance = 0.2) => {
+      return monthLabels.map((_, index) => {
+        const randomFactor = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
+        return Math.round(baseAmount * randomFactor * (1 + index * 0.1));
+      });
+    };
+
     const baseData = {
       all: {
-        totalRevenue: 124500,
+        totalRevenue: 124500 * monthsDiff,
         ownerPercentage: 65.2,
         expensesPercentage: 36.6,
         systemManagerPercentage: 15.8,
-        monthlyRevenue: [45000, 52000, 48000, 61000, 55000, 67000],
-        monthlyExpenses: [18000, 19500, 17200, 20100, 18900, 21300],
+        monthlyRevenue: generateMonthlyData(45000),
+        monthlyExpenses: generateMonthlyData(18000),
         revenueGrowth: 12.5,
       },
       "ahmed-ali": {
-        totalRevenue: 45000,
+        totalRevenue: 45000 * monthsDiff,
         ownerPercentage: 70.0,
         expensesPercentage: 25.0,
         systemManagerPercentage: 10.0,
-        monthlyRevenue: [15000, 18000, 16000, 20000, 17000, 19000],
-        monthlyExpenses: [8000, 9000, 7500, 10000, 8500, 9500],
+        monthlyRevenue: generateMonthlyData(15000),
+        monthlyExpenses: generateMonthlyData(8000),
         revenueGrowth: 8.5,
       },
       "mona-hassan": {
-        totalRevenue: 35000,
+        totalRevenue: 35000 * monthsDiff,
         ownerPercentage: 60.0,
         expensesPercentage: 30.0,
         systemManagerPercentage: 15.0,
-        monthlyRevenue: [12000, 14000, 13000, 16000, 14500, 15500],
-        monthlyExpenses: [6000, 7000, 6500, 8000, 7200, 7800],
+        monthlyRevenue: generateMonthlyData(12000),
+        monthlyExpenses: generateMonthlyData(6000),
         revenueGrowth: 15.2,
       },
       "omar-mahmoud": {
-        totalRevenue: 25000,
+        totalRevenue: 25000 * monthsDiff,
         ownerPercentage: 75.0,
         expensesPercentage: 20.0,
         systemManagerPercentage: 8.0,
-        monthlyRevenue: [8000, 9000, 8500, 10000, 9200, 9800],
-        monthlyExpenses: [3000, 3500, 3200, 4000, 3600, 3800],
+        monthlyRevenue: generateMonthlyData(8000),
+        monthlyExpenses: generateMonthlyData(3000),
         revenueGrowth: 5.8,
       },
       "fatima-ahmed": {
-        totalRevenue: 19500,
+        totalRevenue: 19500 * monthsDiff,
         ownerPercentage: 55.0,
         expensesPercentage: 35.0,
         systemManagerPercentage: 12.0,
-        monthlyRevenue: [6000, 7000, 6500, 8000, 7200, 7800],
-        monthlyExpenses: [4000, 4500, 4200, 5000, 4600, 4800],
+        monthlyRevenue: generateMonthlyData(6000),
+        monthlyExpenses: generateMonthlyData(4000),
         revenueGrowth: 18.3,
       },
     };
@@ -139,8 +188,9 @@ const Reports = () => {
 
   const getRevenueData = () => {
     const colors = getColors();
+    const { monthLabels } = generateDateBasedData();
     return {
-      labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+      labels: monthLabels,
       datasets: [
         {
           label: t("reports.revenue"),
@@ -278,6 +328,28 @@ const Reports = () => {
     return `${value.toFixed(1)}%`;
   };
 
+  const handleDateRangeChange = (field, value) => {
+    setDateRange((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleApplyDateRange = () => {
+    setShowDatePicker(false);
+    // Data will automatically update due to reactive dependencies
+  };
+
+  const handleResetDateRange = () => {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    setDateRange({
+      startDate: firstDayOfMonth.toISOString().split("T")[0],
+      endDate: today.toISOString().split("T")[0],
+    });
+    setShowDatePicker(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="p-4 md:p-6 space-y-6">
@@ -295,13 +367,25 @@ const Reports = () => {
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {t("reports.generateAndView")}
               </p>
+              <div className="mt-2 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-500" />
+                <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                  {new Date(dateRange.startDate).toLocaleDateString()} -{" "}
+                  {new Date(dateRange.endDate).toLocaleDateString()}
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => console.log("Date range filter clicked")}
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className={
+                  showDatePicker
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700"
+                    : ""
+                }
               >
                 <Calendar
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
@@ -320,6 +404,84 @@ const Reports = () => {
             </div>
           </div>
         </motion.div>
+
+        {/* Date Range Picker */}
+        {showDatePicker && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {direction === "rtl"
+                    ? "اختيار نطاق التاريخ"
+                    : "Select Date Range"}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {direction === "rtl"
+                    ? "اختر الفترة الزمنية لعرض البيانات"
+                    : "Choose the time period to display data"}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {direction === "rtl" ? "من تاريخ" : "From Date"}
+                    </label>
+                    <input
+                      type="date"
+                      value={dateRange.startDate}
+                      onChange={(e) =>
+                        handleDateRangeChange("startDate", e.target.value)
+                      }
+                      className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {direction === "rtl" ? "إلى تاريخ" : "To Date"}
+                    </label>
+                    <input
+                      type="date"
+                      value={dateRange.endDate}
+                      onChange={(e) =>
+                        handleDateRangeChange("endDate", e.target.value)
+                      }
+                      className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleResetDateRange}
+                  >
+                    {direction === "rtl" ? "إعادة تعيين" : "Reset"}
+                  </Button>
+                  <Button size="sm" onClick={handleApplyDateRange}>
+                    {direction === "rtl" ? "تطبيق" : "Apply"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                <strong>
+                  {direction === "rtl" ? "الفترة المحددة:" : "Selected Period:"}
+                </strong>{" "}
+                {new Date(dateRange.startDate).toLocaleDateString()} -{" "}
+                {new Date(dateRange.endDate).toLocaleDateString()}
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -470,29 +632,6 @@ const Reports = () => {
                     </option>
                   ))}
                 </select>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  <option value="monthly">{t("reports.monthlyTrends")}</option>
-                  <option value="quarterly">
-                    {t("reports.quarterlyAnalysis")}
-                  </option>
-                  <option value="yearly">{t("reports.yearlyOverview")}</option>
-                </select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => console.log("Date range filter clicked")}
-                >
-                  <Calendar
-                    className={`h-4 w-4 ${
-                      direction === "rtl" ? "ml-2" : "mr-2"
-                    }`}
-                  />
-                  {t("reports.dateRange")}
-                </Button>
                 <Button
                   size="sm"
                   onClick={() => console.log("Export all reports")}

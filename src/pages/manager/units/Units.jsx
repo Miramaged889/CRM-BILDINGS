@@ -22,6 +22,7 @@ const Units = () => {
   const { direction } = useLanguageStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [districtFilter, setDistrictFilter] = useState("all");
 
@@ -98,6 +99,54 @@ const Units = () => {
       image:
         "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
+    {
+      id: 7,
+      number: "E-401",
+      type: "studio",
+      status: "available",
+      rent: 800,
+      tenant: null,
+      city: "Dubai",
+      district: "Jumeirah",
+      image:
+        "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
+    },
+    {
+      id: 8,
+      number: "F-501",
+      type: "penthouse",
+      status: "occupied",
+      rent: 3500,
+      tenant: "Ahmed Al-Rashid",
+      city: "Dubai",
+      district: "Burj Khalifa",
+      image:
+        "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
+    },
+    {
+      id: 9,
+      number: "G-201",
+      type: "warehouse",
+      status: "available",
+      rent: 1500,
+      tenant: null,
+      city: "Cairo",
+      district: "New Cairo",
+      image:
+        "https://images.pexels.com/photos/2219024/pexels-photo-2219024.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
+    },
+    {
+      id: 10,
+      number: "H-301",
+      type: "retail",
+      status: "occupied",
+      rent: 2800,
+      tenant: "Fashion Store LLC",
+      city: "Dubai",
+      district: "Dubai Mall",
+      image:
+        "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
+    },
   ];
 
   const statusColors = {
@@ -108,9 +157,10 @@ const Units = () => {
       "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
   };
 
-  // Get unique cities and districts for filter options
+  // Get unique cities, districts, and types for filter options
   const cities = [...new Set(units.map((unit) => unit.city))];
   const districts = [...new Set(units.map((unit) => unit.district))];
+  const types = [...new Set(units.map((unit) => unit.type))];
 
   const filteredUnits = units.filter((unit) => {
     const matchesSearch =
@@ -119,10 +169,17 @@ const Units = () => {
         unit.tenant.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus =
       statusFilter === "all" || unit.status === statusFilter;
+    const matchesType = typeFilter === "all" || unit.type === typeFilter;
     const matchesCity = cityFilter === "all" || unit.city === cityFilter;
     const matchesDistrict =
       districtFilter === "all" || unit.district === districtFilter;
-    return matchesSearch && matchesStatus && matchesCity && matchesDistrict;
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesType &&
+      matchesCity &&
+      matchesDistrict
+    );
   });
 
   return (
@@ -176,7 +233,7 @@ const Units = () => {
             </div>
 
             {/* Filter Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Status Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -199,6 +256,45 @@ const Units = () => {
                   <option value="maintenance">
                     {direction === "rtl" ? "صيانة" : "Maintenance"}
                   </option>
+                </select>
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "نوع الوحدة" : "Unit Type"}
+                </label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                >
+                  <option value="all">
+                    {direction === "rtl" ? "جميع الأنواع" : "All Types"}
+                  </option>
+                  {types.map((type) => (
+                    <option key={type} value={type}>
+                      {direction === "rtl"
+                        ? type === "apartment"
+                          ? "شقة"
+                          : type === "villa"
+                          ? "فيلا"
+                          : type === "office"
+                          ? "مكتب"
+                          : type === "shop"
+                          ? "محل"
+                          : type === "studio"
+                          ? "استوديو"
+                          : type === "penthouse"
+                          ? "بنتهاوس"
+                          : type === "warehouse"
+                          ? "مستودع"
+                          : type === "retail"
+                          ? "تجاري"
+                          : type
+                        : type.charAt(0).toUpperCase() + type.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -254,6 +350,7 @@ const Units = () => {
                   onClick={() => {
                     setSearchTerm("");
                     setStatusFilter("all");
+                    setTypeFilter("all");
                     setCityFilter("all");
                     setDistrictFilter("all");
                   }}
@@ -303,8 +400,26 @@ const Units = () => {
                     direction === "rtl" ? "right-4" : "left-4"
                   }`}
                 >
-                  <span className="px-2 py-1 bg-white/90 dark:bg-gray-800/90 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {t(`units.${unit.type}`)}
+                  <span className="px-3 py-1 bg-white/90 dark:bg-gray-800/90 rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-sm">
+                    {direction === "rtl"
+                      ? unit.type === "apartment"
+                        ? "شقة"
+                        : unit.type === "villa"
+                        ? "فيلا"
+                        : unit.type === "office"
+                        ? "مكتب"
+                        : unit.type === "shop"
+                        ? "محل"
+                        : unit.type === "studio"
+                        ? "استوديو"
+                        : unit.type === "penthouse"
+                        ? "بنتهاوس"
+                        : unit.type === "warehouse"
+                        ? "مستودع"
+                        : unit.type === "retail"
+                        ? "تجاري"
+                        : unit.type
+                      : unit.type.charAt(0).toUpperCase() + unit.type.slice(1)}
                   </span>
                 </div>
               </div>

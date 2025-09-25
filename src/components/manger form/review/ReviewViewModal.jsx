@@ -65,27 +65,27 @@ const ReviewViewModal = ({ review, onClose, onEdit }) => {
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
         exit={{ scale: 0.95 }}
-        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
       >
         <Card className="p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {direction === "rtl" ? "تفاصيل المراجعة" : "Review Details"}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                   {direction === "rtl" ? "مراجعة" : "Review"} #{review.id} -{" "}
                   {review.tenant}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handlePrint}
-                  className="flex items-center"
+                  className="flex items-center w-full sm:w-auto"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   {direction === "rtl" ? "طباعة" : "Print"}
@@ -93,14 +93,14 @@ const ReviewViewModal = ({ review, onClose, onEdit }) => {
                 <Button
                   size="sm"
                   onClick={onEdit}
-                  className="flex items-center"
+                  className="flex items-center w-full sm:w-auto"
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   {direction === "rtl" ? "تعديل" : "Edit"}
                 </Button>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors self-start sm:self-auto"
                 >
                   <X className="h-5 w-5 text-gray-500" />
                 </button>
@@ -109,7 +109,7 @@ const ReviewViewModal = ({ review, onClose, onEdit }) => {
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6">
             {/* Review Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Main Info */}

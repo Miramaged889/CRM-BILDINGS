@@ -11,6 +11,10 @@ import {
   Save,
   X,
   Building2,
+  Upload,
+  Image,
+  DollarSign,
+  UserCheck,
 } from "lucide-react";
 import Card from "../../ui/Card";
 import Button from "../../ui/Button";
@@ -32,9 +36,13 @@ const MaintenanceForm = ({
     building: maintenance?.building || "",
     description: maintenance?.description || "",
     date: maintenance?.date || new Date().toISOString().split("T")[0],
+    completedBy: maintenance?.completedBy || "",
+    amount: maintenance?.amount || "",
+    photos: maintenance?.photos || [],
   });
 
   const [errors, setErrors] = useState({});
+  const [uploading, setUploading] = useState(false);
 
   // Mock tenants data - in real app, this would come from API
   const availableTenants = [
@@ -106,7 +114,47 @@ const MaintenanceForm = ({
         unit: selectedTenant.unit,
         building: selectedTenant.building,
       }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        tenant: "",
+        unit: "",
+        building: "",
+      }));
     }
+  };
+
+  const handleFileUpload = (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    setUploading(true);
+
+    // Simulate file upload process
+    setTimeout(() => {
+      const newPhotos = files.map((file, index) => ({
+        id: Date.now() + index,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: URL.createObjectURL(file),
+        uploadedAt: new Date().toISOString(),
+      }));
+
+      setFormData((prev) => ({
+        ...prev,
+        photos: [...prev.photos, ...newPhotos],
+      }));
+
+      setUploading(false);
+    }, 1000);
+  };
+
+  const handleRemovePhoto = (photoId) => {
+    setFormData((prev) => ({
+      ...prev,
+      photos: prev.photos.filter((photo) => photo.id !== photoId),
+    }));
   };
 
   const validateForm = () => {
@@ -139,6 +187,20 @@ const MaintenanceForm = ({
           : "Problem description is required";
     }
 
+    if (!formData.completedBy.trim()) {
+      newErrors.completedBy =
+        direction === "rtl"
+          ? "اسم المنفذ مطلوب"
+          : "Completed by name is required";
+    }
+
+    if (!formData.amount || formData.amount <= 0) {
+      newErrors.amount =
+        direction === "rtl"
+          ? "المبلغ المدفوع مطلوب"
+          : "Amount paid is required";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -154,6 +216,12 @@ const MaintenanceForm = ({
 
       onSave(maintenanceData);
     }
+  };
+
+  // Find the selected tenant for display
+  const getSelectedTenantId = () => {
+    const tenant = availableTenants.find((t) => t.name === formData.tenant);
+    return tenant ? tenant.id : "";
   };
 
   return (
@@ -211,18 +279,19 @@ const MaintenanceForm = ({
                     ? "المعلومات الأساسية"
                     : "Basic Information"}
                 </h3>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "عنوان الطلب" : "Request Title"}
+                    {direction === "rtl"
+                      ? "الصيانة التي تمت"
+                      : "Maintenance Done"}
                   </label>
                   <Input
                     value={formData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
                     placeholder={
                       direction === "rtl"
-                        ? "أدخل عنوان طلب الصيانة"
-                        : "Enter maintenance request title"
+                        ? "أدخل الصيانة التي تمت"
+                        : "Enter maintenance done"
                     }
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
                       errors.title ? "border-red-500" : ""
@@ -235,17 +304,19 @@ const MaintenanceForm = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "اسم المستأجر" : "Tenant Name"}
+                    {direction === "rtl" ? "اسم المستأجر" : "Tenant Name"} *
                   </label>
                   <select
-                    value={formData.tenant || ""}
+                    value={getSelectedTenantId()}
                     onChange={(e) => handleTenantChange(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                       errors.tenant ? "border-red-500" : ""
                     }`}
                   >
                     <option value="">
-                      {direction === "rtl" ? "اختر المستأجر" : "Select Tenant"}
+                      {direction === "rtl"
+                        ? "اختر المستأجر"
+                        : "Select Tenant Name"}
                     </option>
                     {availableTenants.map((tenant) => (
                       <option key={tenant.id} value={tenant.id}>
@@ -255,6 +326,21 @@ const MaintenanceForm = ({
                   </select>
                   {errors.tenant && (
                     <p className="text-red-500 text-sm mt-1">{errors.tenant}</p>
+                  )}
+                  {formData.tenant && (
+                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center">
+                        <User
+                          className={`h-4 w-4 ${
+                            direction === "rtl" ? "ml-2" : "mr-2"
+                          }`}
+                        />
+                        {direction === "rtl"
+                          ? "المستأجر المحدد:"
+                          : "Selected Tenant:"}
+                        <span className="font-medium">{formData.tenant}</span>
+                      </p>
+                    </div>
                   )}
                 </div>
 
@@ -294,7 +380,7 @@ const MaintenanceForm = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "تاريخ الطلب" : "Request Date"}
+                    {direction === "rtl" ? "تاريخ الصيانة" : "Maintenance Date"}
                   </label>
                   <Input
                     type="date"
@@ -302,6 +388,66 @@ const MaintenanceForm = ({
                     onChange={(e) => handleInputChange("date", e.target.value)}
                     className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl" ? "اسم المنفذ" : "Completed By"} *
+                  </label>
+                  <Input
+                    value={formData.completedBy}
+                    onChange={(e) =>
+                      handleInputChange("completedBy", e.target.value)
+                    }
+                    placeholder={
+                      direction === "rtl"
+                        ? "أدخل اسم المنفذ"
+                        : "Enter person who completed the work"
+                    }
+                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
+                      errors.completedBy ? "border-red-500" : ""
+                    }`}
+                  />
+                  {errors.completedBy && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.completedBy}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl" ? "المبلغ المدفوع" : "Amount Paid"} *
+                  </label>
+                  <div className="relative">
+                    <div
+                      className={`absolute inset-y-0 flex items-center px-3 pointer-events-none ${
+                        direction === "rtl" ? "right-0" : "left-0"
+                      }`}
+                    >
+                      <DollarSign className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <Input
+                      type="number"
+                      value={formData.amount}
+                      onChange={(e) =>
+                        handleInputChange("amount", e.target.value)
+                      }
+                      placeholder={
+                        direction === "rtl"
+                          ? "أدخل المبلغ المدفوع"
+                          : "Enter amount paid"
+                      }
+                      min="0"
+                      step="0.01"
+                      className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
+                        direction === "rtl" ? "pr-10" : "pl-10"
+                      } ${errors.amount ? "border-red-500" : ""}`}
+                    />
+                  </div>
+                  {errors.amount && (
+                    <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
+                  )}
                 </div>
               </div>
 
@@ -320,7 +466,8 @@ const MaintenanceForm = ({
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {direction === "rtl"
                       ? "وصف المشكلة"
-                      : "Problem Description"}
+                      : "Problem Description"}{" "}
+                    *
                   </label>
                   <textarea
                     value={formData.description}
@@ -333,7 +480,7 @@ const MaintenanceForm = ({
                         : "Write a detailed description of the problem..."
                     }
                     rows={6}
-                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none ${
+                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none transition-colors ${
                       errors.description ? "border-red-500" : ""
                     }`}
                   />
@@ -346,20 +493,131 @@ const MaintenanceForm = ({
               </div>
             </div>
 
+            {/* Photo Upload Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <Image
+                  className={`h-5 w-5 text-purple-600 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  }`}
+                />
+                {direction === "rtl" ? "صور الصيانة" : "Maintenance Photos"}
+              </h3>
+
+              {/* File Upload Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
+                <input
+                  type="file"
+                  id="maintenance-photos"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="maintenance-photos"
+                  className="cursor-pointer flex flex-col items-center space-y-2"
+                >
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                  ) : (
+                    <Upload className="h-8 w-8 text-gray-400" />
+                  )}
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {uploading ? (
+                      direction === "rtl" ? (
+                        "جاري الرفع..."
+                      ) : (
+                        "Uploading..."
+                      )
+                    ) : (
+                      <>
+                        <span className="font-medium text-purple-600 hover:text-purple-500">
+                          {direction === "rtl"
+                            ? "انقر لرفع الصور"
+                            : "Click to upload photos"}
+                        </span>
+                        <br />
+                        <span>
+                          {direction === "rtl"
+                            ? "أو اسحب وأفلت الصور هنا"
+                            : "or drag and drop photos here"}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {direction === "rtl"
+                      ? "PNG, JPG حتى 10MB"
+                      : "PNG, JPG up to 10MB"}
+                  </p>
+                </label>
+              </div>
+
+              {/* Uploaded Photos */}
+              {formData.photos.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {direction === "rtl" ? "الصور المرفوعة" : "Uploaded Photos"}{" "}
+                    ({formData.photos.length})
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {formData.photos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="relative bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center space-x-3 rtl:space-x-reverse mb-2">
+                          <div className="flex-shrink-0">
+                            <Image className="h-5 w-5 text-blue-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {photo.name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {(photo.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(photo.id)}
+                            className="flex-shrink-0 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="mt-2">
+                          <img
+                            src={photo.url}
+                            alt={photo.name}
+                            className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-600"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Form Actions */}
             <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                className="px-6 py-2"
+                className="px-6 py-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <X
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
                 {direction === "rtl" ? "إلغاء" : "Cancel"}
               </Button>
-              <Button type="submit" className="px-6 py-2">
+              <Button
+                type="submit"
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 <Save
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />

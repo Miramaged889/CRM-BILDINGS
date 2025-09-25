@@ -103,17 +103,17 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
         exit={{ scale: 0.95 }}
-        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
       >
         <Card className="p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {direction === "rtl" ? "تفاصيل عقد الإيجار" : "Lease Details"}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                   {direction === "rtl"
                     ? "عرض تفاصيل عقد الإيجار"
                     : "View lease contract details"}
@@ -121,7 +121,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors self-start sm:self-auto"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -129,7 +129,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6">
             {/* Lease Header */}
             <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6">
               <h3 className="text-2xl font-bold text-blue-900 dark:text-blue-100 mb-2">
@@ -157,7 +157,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
             </div>
 
             {/* Lease Information Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Tenant Information */}
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -166,7 +166,9 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       direction === "rtl" ? "ml-2" : "mr-2"
                     }`}
                   />
-                  {direction === "rtl" ? "معلومات المستأجر" : "Tenant Information"}
+                  {direction === "rtl"
+                    ? "معلومات المستأجر"
+                    : "Tenant Information"}
                 </h4>
                 <div className="space-y-3">
                   <div>
@@ -261,7 +263,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
             </div>
 
             {/* Dates and Financial Information */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Dates */}
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -313,7 +315,9 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                      {direction === "rtl" ? "الإيجار الشهري:" : "Monthly Rent:"}
+                      {direction === "rtl"
+                        ? "الإيجار الشهري:"
+                        : "Monthly Rent:"}
                     </span>
                     <span className="text-green-900 dark:text-green-100 font-bold text-lg">
                       {formatCurrency(lease.rent)}
@@ -350,9 +354,11 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       direction === "rtl" ? "ml-2" : "mr-2"
                     }`}
                   />
-                  {direction === "rtl" ? "معلومات إضافية" : "Additional Information"}
+                  {direction === "rtl"
+                    ? "معلومات إضافية"
+                    : "Additional Information"}
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {lease.utilities && (
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <div className="flex items-center mb-2">
@@ -372,7 +378,9 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       <div className="flex items-center mb-2">
                         <Shield className="h-4 w-4 text-green-600 mr-2" />
                         <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                          {direction === "rtl" ? "سياسة الحيوانات" : "Pet Policy"}
+                          {direction === "rtl"
+                            ? "سياسة الحيوانات"
+                            : "Pet Policy"}
                         </span>
                       </div>
                       <p className="text-green-900 dark:text-green-100 text-sm">
@@ -412,13 +420,17 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
           </div>
 
           {/* Footer Actions */}
-          <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
             <div
-              className={`flex items-center gap-4 ${
+              className={`flex flex-col sm:flex-row items-center gap-4 ${
                 direction === "rtl" ? "justify-start" : "justify-end"
               }`}
             >
-              <Button variant="outline" onClick={onClose} className="px-6 py-2">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="w-full sm:w-auto px-6 py-2"
+              >
                 <X
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
@@ -427,14 +439,17 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
               <Button
                 variant="outline"
                 onClick={() => onPrint(lease)}
-                className="px-6 py-2"
+                className="w-full sm:w-auto px-6 py-2"
               >
                 <Printer
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
                 {direction === "rtl" ? "طباعة" : "Print"}
               </Button>
-              <Button onClick={() => onEdit(lease)} className="px-6 py-2">
+              <Button
+                onClick={() => onEdit(lease)}
+                className="w-full sm:w-auto px-6 py-2"
+              >
                 <Edit
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />

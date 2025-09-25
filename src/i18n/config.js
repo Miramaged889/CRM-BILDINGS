@@ -461,6 +461,14 @@ const resources = {
       "tenants.recentActivity": "Recent Activity",
       "tenants.noTenantsFound": "No tenants found",
       "tenants.tryDifferentSearch": "Try different search criteria",
+      "tenants.reviews": "Reviews",
+      "tenants.leases": "Leases",
+      "tenants.addReview": "Add Review",
+      "tenants.addLease": "Add Lease",
+      "tenants.date": "Date",
+      "tenants.amount": "Amount",
+      "tenants.method": "Method",
+      "tenants.status": "Status",
 
       // Payments specific
       "payments.managePayments": "Track and manage all rental payments",
@@ -603,7 +611,7 @@ const resources = {
       "nav.calendar": "التقويم",
       "nav.settings": "الإعدادات",
       "nav.logout": "تسجيل الخروج",
-      "nav.buildings": "المباني",
+      "nav.buildings": "اداره المباني",
       "nav.owners": "المالكين",
       "nav.contracts": "العقود المالكين",
       "nav.reviews": "التقييمات",
@@ -731,6 +739,14 @@ const resources = {
       "tenants.noTenantsFound": "لا يوجد مستأجرين",
       "tenants.tryDifferentSearch": "جرب معايير بحث مختلفة",
       "tenants.tenant": "المستأجر",
+      "tenants.reviews": "المراجعات",
+      "tenants.leases": "العقود",
+      "tenants.addReview": "إضافة مراجعة",
+      "tenants.addLease": "إضافة عقد",
+      "tenants.date": "التاريخ",
+      "tenants.amount": "المبلغ",
+      "tenants.method": "الطريقة",
+      "tenants.status": "الحالة",
 
       // Common
       "common.search": "بحث...",

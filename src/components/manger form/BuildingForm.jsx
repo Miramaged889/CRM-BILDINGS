@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { useLanguageStore } from "../../../stores/languageStore";
+import { useLanguageStore } from "../../stores/languageStore";
 import { useTranslation } from "react-i18next";
 import {
   Building2,
@@ -13,10 +13,13 @@ import {
   Trash2,
   Upload,
   User,
+  Calendar,
+  FileText,
+  Image,
 } from "lucide-react";
-import Card from "../../ui/Card";
-import Button from "../../ui/Button";
-import Input from "../../ui/Input";
+import Card from "../ui/Card";
+import Button from "../ui/Button";
+import Input from "../ui/Input";
 
 const BuildingForm = ({
   building = null,
@@ -32,8 +35,7 @@ const BuildingForm = ({
     address: building?.address || "",
     city: building?.city || "",
     country: building?.country || "",
-    lat: building?.lat || "",
-    lng: building?.lng || "",
+    locationLink: building?.locationLink || "",
     totalUnits: building?.totalUnits || "",
     occupiedUnits: building?.occupiedUnits || "",
     vacantUnits: building?.vacantUnits || "",
@@ -43,21 +45,19 @@ const BuildingForm = ({
     description: building?.description || "",
     amenities: building?.amenities || [],
     photos: building?.photos || [],
-    assets: building?.assets || [],
     owners: building?.owners || [],
+    rentStartDate: building?.rentStartDate || "",
+    rentEndDate: building?.rentEndDate || "",
+    contractPhotos: building?.contractPhotos || [],
   });
 
   const [errors, setErrors] = useState({});
   const [newAmenity, setNewAmenity] = useState("");
-  const [newAsset, setNewAsset] = useState({
-    name: "",
-    value: "",
-    type: "equipment",
-  });
   const [newOwner, setNewOwner] = useState({
     ownerId: "",
     ownershipPercentage: "",
   });
+  const [uploading, setUploading] = useState(false);
 
   // Mock owners data - in real app, this would come from API
   const availableOwners = [
@@ -157,23 +157,6 @@ const BuildingForm = ({
     }));
   };
 
-  const addAsset = () => {
-    if (newAsset.name.trim() && newAsset.value.trim()) {
-      setFormData((prev) => ({
-        ...prev,
-        assets: [...prev.assets, { ...newAsset, id: Date.now() }],
-      }));
-      setNewAsset({ name: "", value: "", type: "equipment" });
-    }
-  };
-
-  const removeAsset = (assetId) => {
-    setFormData((prev) => ({
-      ...prev,
-      assets: prev.assets.filter((asset) => asset.id !== assetId),
-    }));
-  };
-
   const addOwner = () => {
     if (newOwner.ownerId && newOwner.ownershipPercentage) {
       const selectedOwner = availableOwners.find(
@@ -212,6 +195,41 @@ const BuildingForm = ({
     }));
   };
 
+  const handleContractPhotoUpload = (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    setUploading(true);
+
+    // Simulate file upload process
+    setTimeout(() => {
+      const newPhotos = files.map((file, index) => ({
+        id: Date.now() + index,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: URL.createObjectURL(file),
+        uploadedAt: new Date().toISOString(),
+      }));
+
+      setFormData((prev) => ({
+        ...prev,
+        contractPhotos: [...prev.contractPhotos, ...newPhotos],
+      }));
+
+      setUploading(false);
+    }, 1000);
+  };
+
+  const handleRemoveContractPhoto = (photoId) => {
+    setFormData((prev) => ({
+      ...prev,
+      contractPhotos: prev.contractPhotos.filter(
+        (photo) => photo.id !== photoId
+      ),
+    }));
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -235,11 +253,9 @@ const BuildingForm = ({
         direction === "rtl" ? "عدد الوحدات مطلوب" : "Total units is required";
     }
 
-    if (!formData.lat || !formData.lng) {
-      newErrors.location =
-        direction === "rtl"
-          ? "إحداثيات الموقع مطلوبة"
-          : "Location coordinates are required";
+    if (!formData.locationLink.trim()) {
+      newErrors.locationLink =
+        direction === "rtl" ? "رابط الموقع مطلوب" : "Location link is required";
     }
 
     if (formData.owners.length === 0) {
@@ -276,8 +292,6 @@ const BuildingForm = ({
         vacantUnits: parseInt(formData.vacantUnits) || 0,
         floors: parseInt(formData.floors) || 1,
         yearBuilt: parseInt(formData.yearBuilt) || new Date().getFullYear(),
-        lat: parseFloat(formData.lat),
-        lng: parseFloat(formData.lng),
       };
 
       onSave(buildingData);
@@ -295,13 +309,6 @@ const BuildingForm = ({
     },
     { value: "mixed", label: direction === "rtl" ? "مختلط" : "Mixed Use" },
     { value: "office", label: direction === "rtl" ? "مكتبي" : "Office" },
-  ];
-
-  const assetTypes = [
-    { value: "equipment", label: direction === "rtl" ? "معدات" : "Equipment" },
-    { value: "furniture", label: direction === "rtl" ? "أثاث" : "Furniture" },
-    { value: "vehicle", label: direction === "rtl" ? "مركبة" : "Vehicle" },
-    { value: "other", label: direction === "rtl" ? "أخرى" : "Other" },
   ];
 
   return (
@@ -350,7 +357,11 @@ const BuildingForm = ({
               {/* Basic Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Building2 className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"} text-blue-600`} />
+                  <Building2
+                    className={`h-5 w-5 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    } text-blue-600`}
+                  />
                   {direction === "rtl"
                     ? "المعلومات الأساسية"
                     : "Basic Information"}
@@ -458,77 +469,57 @@ const BuildingForm = ({
               {/* Location Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                  <MapPin className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"} text-green-600`} />
+                  <MapPin
+                    className={`h-5 w-5 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    } text-green-600`}
+                  />
                   {direction === "rtl"
                     ? "معلومات الموقع"
                     : "Location Information"}
                 </h3>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {direction === "rtl" ? "خط العرض" : "Latitude"}
-                    </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl" ? "رابط الموقع" : "Location Link"}
+                  </label>
+                  <div className="flex items-center gap-2">
                     <Input
-                      type="number"
-                      step="any"
-                      value={formData.lat}
-                      onChange={(e) => handleInputChange("lat", e.target.value)}
-                      placeholder="25.2048"
-                      className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                        errors.location ? "border-red-500" : ""
+                      value={formData.locationLink}
+                      onChange={(e) =>
+                        handleInputChange("locationLink", e.target.value)
+                      }
+                      placeholder="https://www.google.com/maps/place/..."
+                      className={`flex-1 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
+                        errors.locationLink ? "border-red-500" : ""
                       }`}
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {direction === "rtl" ? "خط الطول" : "Longitude"}
-                    </label>
-                    <Input
-                      type="number"
-                      step="any"
-                      value={formData.lng}
-                      onChange={(e) => handleInputChange("lng", e.target.value)}
-                      placeholder="55.2708"
-                      className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                        errors.location ? "border-red-500" : ""
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                {/* Location Link */}
-                {formData.lat && formData.lng && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {direction === "rtl" ? "رابط الموقع" : "Location Link"}
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={`https://www.google.com/maps?q=${formData.lat},${formData.lng}`}
-                        readOnly
-                        className="bg-gray-50 dark:bg-gray-600 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (formData.locationLink) {
+                          window.open(formData.locationLink, "_blank");
+                        }
+                      }}
+                      className="whitespace-nowrap"
+                      disabled={!formData.locationLink}
+                    >
+                      <MapPin
+                        className={`h-4 w-4 ${
+                          direction === "rtl" ? "ml-1" : "mr-1"
+                        }`}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const url = `https://www.google.com/maps?q=${formData.lat},${formData.lng}`;
-                          window.open(url, "_blank");
-                        }}
-                        className="whitespace-nowrap"
-                      >
-                        <MapPin className={`h-4 w-4 ${direction === "rtl" ? "ml-1" : "mr-1"}`} />
-                        {direction === "rtl" ? "فتح" : "Open"}
-                      </Button>
-                    </div>
+                      {direction === "rtl" ? "فتح" : "Open"}
+                    </Button>
                   </div>
-                )}
-                {errors.location && (
-                  <p className="text-red-500 text-sm">{errors.location}</p>
-                )}
+                  {errors.locationLink && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.locationLink}
+                    </p>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -567,7 +558,11 @@ const BuildingForm = ({
             {/* Units Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                <Home className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"} text-purple-600`} />
+                <Home
+                  className={`h-5 w-5 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  } text-purple-600`}
+                />
                 {direction === "rtl" ? "معلومات الوحدات" : "Units Information"}
               </h3>
 
@@ -626,10 +621,60 @@ const BuildingForm = ({
               </div>
             </div>
 
+            {/* Rent Period */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <Calendar
+                  className={`h-5 w-5 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  } text-orange-600`}
+                />
+                {direction === "rtl" ? "فترة الإيجار" : "Rent Period"}
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl"
+                      ? "تاريخ بداية الإيجار"
+                      : "Rent Start Date"}
+                  </label>
+                  <Input
+                    type="date"
+                    value={formData.rentStartDate}
+                    onChange={(e) =>
+                      handleInputChange("rentStartDate", e.target.value)
+                    }
+                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl"
+                      ? "تاريخ نهاية الإيجار"
+                      : "Rent End Date"}
+                  </label>
+                  <Input
+                    type="date"
+                    value={formData.rentEndDate}
+                    onChange={(e) =>
+                      handleInputChange("rentEndDate", e.target.value)
+                    }
+                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Photos */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                <Camera className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"} text-yellow-600`} />
+                <Camera
+                  className={`h-5 w-5 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  } text-yellow-600`}
+                />
                 {direction === "rtl" ? "صور المبنى" : "Building Photos"}
               </h3>
 
@@ -652,7 +697,11 @@ const BuildingForm = ({
                   htmlFor="photo-upload"
                   className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
                 >
-                  <Camera className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                  <Camera
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
                   {direction === "rtl" ? "اختيار الصور" : "Select Photos"}
                 </label>
               </div>
@@ -675,6 +724,118 @@ const BuildingForm = ({
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Contract Photos */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <FileText
+                  className={`h-5 w-5 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  } text-indigo-600`}
+                />
+                {direction === "rtl" ? "صور العقد" : "Contract Photos"}
+              </h3>
+
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  id="contract-photos"
+                  multiple
+                  accept="image/*,.pdf"
+                  onChange={handleContractPhotoUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="contract-photos"
+                  className="cursor-pointer flex flex-col items-center space-y-2"
+                >
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  ) : (
+                    <Upload className="h-8 w-8 text-gray-400" />
+                  )}
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {uploading ? (
+                      direction === "rtl" ? (
+                        "جاري الرفع..."
+                      ) : (
+                        "Uploading..."
+                      )
+                    ) : (
+                      <>
+                        <span className="font-medium text-indigo-600 hover:text-indigo-500">
+                          {direction === "rtl"
+                            ? "انقر لرفع صور العقد"
+                            : "Click to upload contract photos"}
+                        </span>
+                        <br />
+                        <span>
+                          {direction === "rtl"
+                            ? "أو اسحب وأفلت الملفات هنا"
+                            : "or drag and drop files here"}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {direction === "rtl"
+                      ? "PNG, JPG, PDF حتى 10MB"
+                      : "PNG, JPG, PDF up to 10MB"}
+                  </p>
+                </label>
+              </div>
+
+              {formData.contractPhotos.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {direction === "rtl"
+                      ? "الملفات المرفوعة"
+                      : "Uploaded Files"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {formData.contractPhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="relative bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3"
+                      >
+                        <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                          <div className="flex-shrink-0">
+                            {photo.type.startsWith("image/") ? (
+                              <Image className="h-8 w-8 text-blue-500" />
+                            ) : (
+                              <FileText className="h-8 w-8 text-red-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {photo.name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {(photo.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveContractPhoto(photo.id)}
+                            className="flex-shrink-0 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {photo.type.startsWith("image/") && (
+                          <div className="mt-2">
+                            <img
+                              src={photo.url}
+                              alt={photo.name}
+                              className="w-full h-20 object-cover rounded border border-gray-200 dark:border-gray-600"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -714,7 +875,9 @@ const BuildingForm = ({
                       <button
                         type="button"
                         onClick={() => removeAmenity(index)}
-                        className={`${direction === "rtl" ? "mr-2" : "ml-2"} text-blue-600 hover:text-blue-800`}
+                        className={`${
+                          direction === "rtl" ? "mr-2" : "ml-2"
+                        } text-blue-600 hover:text-blue-800`}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -727,7 +890,11 @@ const BuildingForm = ({
             {/* Owners */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                <User className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"} text-purple-600`} />
+                <User
+                  className={`h-5 w-5 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  } text-purple-600`}
+                />
                 {direction === "rtl" ? "الملاك" : "Owners"}
               </h3>
 
@@ -791,7 +958,11 @@ const BuildingForm = ({
                       !newOwner.ownerId || !newOwner.ownershipPercentage
                     }
                   >
-                    <Plus className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                    <Plus
+                      className={`h-4 w-4 ${
+                        direction === "rtl" ? "ml-2" : "mr-2"
+                      }`}
+                    />
                     {direction === "rtl" ? "إضافة" : "Add"}
                   </Button>
                 </div>
@@ -901,77 +1072,6 @@ const BuildingForm = ({
               )}
             </div>
 
-            {/* Assets */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {direction === "rtl" ? "الأصول" : "Assets"}
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                <Input
-                  value={newAsset.name}
-                  onChange={(e) =>
-                    setNewAsset({ ...newAsset, name: e.target.value })
-                  }
-                  placeholder={direction === "rtl" ? "اسم الأصل" : "Asset name"}
-                />
-                <Input
-                  value={newAsset.value}
-                  onChange={(e) =>
-                    setNewAsset({ ...newAsset, value: e.target.value })
-                  }
-                  placeholder={direction === "rtl" ? "القيمة" : "Value"}
-                />
-                <select
-                  value={newAsset.type}
-                  onChange={(e) =>
-                    setNewAsset({ ...newAsset, type: e.target.value })
-                  }
-                  className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                >
-                  {assetTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-                <Button type="button" onClick={addAsset} className="px-4 py-2">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {formData.assets.length > 0 && (
-                <div className="space-y-2">
-                  {formData.assets.map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className="font-medium">{asset.name}</span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {asset.value}
-                        </span>
-                        <span className="text-sm text-blue-600 dark:text-blue-400">
-                          {
-                            assetTypes.find((t) => t.value === asset.type)
-                              ?.label
-                          }
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeAsset(asset.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1000,11 +1100,15 @@ const BuildingForm = ({
                 onClick={onCancel}
                 className="px-6 py-2"
               >
-                <X className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                <X
+                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                />
                 {direction === "rtl" ? "إلغاء" : "Cancel"}
               </Button>
               <Button type="submit" className="px-6 py-2">
-                <Save className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`} />
+                <Save
+                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                />
                 {isEdit
                   ? direction === "rtl"
                     ? "حفظ التغييرات"

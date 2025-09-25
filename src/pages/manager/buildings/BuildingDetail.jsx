@@ -20,11 +20,13 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Share,
+  FileText,
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
-import { BuildingForm } from "../../../components/forms/manger form";
+import { BuildingForm } from "../../../components/manger form";
 
 const BuildingDetail = () => {
   const { direction } = useLanguageStore();
@@ -46,8 +48,7 @@ const BuildingDetail = () => {
       address: "Downtown, City",
       city: "Dubai",
       country: "UAE",
-      lat: 25.2048,
-      lng: 55.2708,
+      locationLink: "https://www.google.com/maps/place/Downtown+Dubai",
       totalUnits: 24,
       occupiedUnits: 18,
       vacantUnits: 6,
@@ -89,6 +90,26 @@ const BuildingDetail = () => {
         "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400",
         "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400",
         "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400",
+      ],
+      contracts: [
+        {
+          id: 1,
+          contractNumber: "CNT-2024-001",
+          startDate: "2024-01-01",
+          endDate: "2024-12-31",
+          contractPhoto:
+            "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400",
+          description: "Annual maintenance contract",
+        },
+        {
+          id: 2,
+          contractNumber: "CNT-2024-002",
+          startDate: "2024-06-01",
+          endDate: "2025-05-31",
+          contractPhoto:
+            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+          description: "Property management agreement",
+        },
       ],
       assets: [
         { id: 1, name: "Elevator System", value: "$50,000", type: "equipment" },
@@ -159,8 +180,7 @@ const BuildingDetail = () => {
       address: "Palm District",
       city: "Dubai",
       country: "UAE",
-      lat: 25.1121,
-      lng: 55.1389,
+      locationLink: "https://www.google.com/maps/place/Palm+Jumeirah",
       totalUnits: 16,
       occupiedUnits: 12,
       vacantUnits: 4,
@@ -172,6 +192,17 @@ const BuildingDetail = () => {
       photos: [
         "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400",
         "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400",
+      ],
+      contracts: [
+        {
+          id: 1,
+          contractNumber: "CNT-2024-003",
+          startDate: "2024-03-01",
+          endDate: "2025-02-28",
+          contractPhoto:
+            "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400",
+          description: "Commercial lease agreement",
+        },
       ],
       assets: [
         {
@@ -226,8 +257,7 @@ const BuildingDetail = () => {
       address: "Zamalek, Cairo",
       city: "Cairo",
       country: "Egypt",
-      lat: 30.0561,
-      lng: 31.2212,
+      locationLink: "https://www.google.com/maps/place/Zamalek,+Cairo",
       totalUnits: 32,
       occupiedUnits: 28,
       vacantUnits: 4,
@@ -240,6 +270,26 @@ const BuildingDetail = () => {
       photos: [
         "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400",
         "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400",
+      ],
+      contracts: [
+        {
+          id: 1,
+          contractNumber: "CNT-2024-004",
+          startDate: "2024-01-15",
+          endDate: "2024-12-15",
+          contractPhoto:
+            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+          description: "Building management contract",
+        },
+        {
+          id: 2,
+          contractNumber: "CNT-2024-005",
+          startDate: "2024-04-01",
+          endDate: "2025-03-31",
+          contractPhoto:
+            "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400",
+          description: "Utility services agreement",
+        },
       ],
       assets: [
         {
@@ -372,6 +422,24 @@ const BuildingDetail = () => {
     setShowForm(false);
   };
 
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: building.name,
+        text: `${building.name} - ${building.address}`,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      const shareText = `${building.name} - ${building.address}`;
+      navigator.clipboard.writeText(shareText).then(() => {
+        alert(
+          direction === "rtl" ? "تم نسخ الرابط" : "Link copied to clipboard"
+        );
+      });
+    }
+  };
+
   const nextPhoto = () => {
     if (building?.photos?.length > 0) {
       setCurrentPhotoIndex((prev) =>
@@ -457,6 +525,16 @@ const BuildingDetail = () => {
     if (status === "maintenance")
       return "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300";
     return "bg-gray-50 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300";
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString(direction === "rtl" ? "ar-EG" : "en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
   const filteredUnits =
@@ -852,44 +930,65 @@ const BuildingDetail = () => {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  {direction === "rtl" ? "الإحداثيات" : "Coordinates"}
+                  {direction === "rtl" ? "رابط الموقع" : "Location Link"}
                 </label>
-                <p className="text-gray-700 dark:text-gray-300">
-                  {building.lat}, {building.lng}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-gray-700 dark:text-gray-300 flex-1 truncate">
+                    {building.locationLink}
+                  </p>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.open(building.locationLink, "_blank");
+                      }}
+                      className="text-xs whitespace-nowrap"
+                    >
+                      <MapPin className="h-3 w-3 mr-1" />
+                      {direction === "rtl" ? "فتح" : "Open"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShare}
+                      className="text-xs whitespace-nowrap"
+                    >
+                      <Share className="h-3 w-3 mr-1" />
+                      {direction === "rtl" ? "مشاركة" : "Share"}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-4">
-              <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                <iframe
-                  src={`https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d3609.9532218342447!2d${building.lng}!3d${building.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMjXCsDEyJzE3LjMiTiA1NcKwMTYnMTQuOSJF!5e0!3m2!1sen!2seg!4v1758662447590!5m2!1sen!2seg`}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title={`${building.name} Location Map`}
-                ></iframe>
+          </Card>
+
+          {/* Unit Occupancy */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+              <Home
+                className={`h-5 w-5 ${
+                  direction === "rtl" ? "ml-2" : "mr-2"
+                } text-green-600`}
+              />
+              {direction === "rtl" ? "إحصائيات الوحدات" : "Unit Statistics"}
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {building.occupiedUnits}
+                </div>
+                <div className="text-sm text-green-700 dark:text-green-300">
+                  {direction === "rtl" ? "وحدات مؤجرة" : "Occupied Units"}
+                </div>
               </div>
-              <div className="mt-2 flex items-center justify-between">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {direction === "rtl" ? "خريطة جوجل" : "Google Maps"}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const url = `https://www.google.com/maps?q=${building.lat},${building.lng}`;
-                    window.open(url, "_blank");
-                  }}
-                  className="text-xs"
-                >
-                  <MapPin className="h-3 w-3 mr-1" />
-                  {direction === "rtl"
-                    ? "فتح في جوجل مابس"
-                    : "Open in Google Maps"}
-                </Button>
+              <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {building.vacantUnits}
+                </div>
+                <div className="text-sm text-red-700 dark:text-red-300">
+                  {direction === "rtl" ? "وحدات شاغرة" : "Vacant Units"}
+                </div>
               </div>
             </div>
           </Card>
@@ -989,42 +1088,79 @@ const BuildingDetail = () => {
             </Card>
           )}
 
-          {/* Assets */}
-          {building.assets && building.assets.length > 0 && (
+          {/* Contracts */}
+          {building.contracts && building.contracts.length > 0 && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Wrench
+                <FileText
                   className={`h-5 w-5 ${
                     direction === "rtl" ? "ml-2" : "mr-2"
-                  } text-gray-600`}
+                  } text-blue-600`}
                 />
-                {direction === "rtl" ? "الأصول" : "Assets"}
+                {direction === "rtl" ? "العقود" : "Contracts"}
               </h3>
-              <div className="space-y-3">
-                {building.assets.slice(0, 3).map((asset) => (
+              <div className="space-y-4">
+                {building.contracts.map((contract) => (
                   <div
-                    key={asset.id}
-                    className="flex justify-between items-center"
+                    key={contract.id}
+                    className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 space-y-3"
                   >
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {translateAssetName(asset.name)}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {translateAssetType(asset.type)}
-                      </p>
+                    {/* Contract Photo */}
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                      <img
+                        src={contract.contractPhoto}
+                        alt={`Contract ${contract.contractNumber}`}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {asset.value}
-                    </p>
+
+                    {/* Contract Details */}
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {direction === "rtl"
+                            ? "رقم العقد"
+                            : "Contract Number"}
+                        </label>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {contract.contractNumber}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            {direction === "rtl"
+                              ? "تاريخ البداية"
+                              : "Start Date"}
+                          </label>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {formatDate(contract.startDate)}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            {direction === "rtl" ? "تاريخ النهاية" : "End Date"}
+                          </label>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {formatDate(contract.endDate)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {contract.description && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            {direction === "rtl" ? "الوصف" : "Description"}
+                          </label>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {contract.description}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
-                {building.assets.length > 3 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                    +{building.assets.length - 3}{" "}
-                    {direction === "rtl" ? "أخرى" : "more"}
-                  </p>
-                )}
               </div>
             </Card>
           )}
