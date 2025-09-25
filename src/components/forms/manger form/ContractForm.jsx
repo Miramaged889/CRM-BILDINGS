@@ -12,6 +12,9 @@ import {
   X,
   Plus,
   Trash2,
+  Upload,
+  Image,
+  Paperclip,
 } from "lucide-react";
 import Card from "../../ui/Card";
 import Button from "../../ui/Button";
@@ -39,6 +42,7 @@ const ContractForm = ({
     contractType: contract?.type || "management",
     status: contract?.status || "active",
     notes: contract?.notes || "",
+    contractPhotos: contract?.contractPhotos || [],
   });
 
   // Mock owners data - in real app, this would come from API
@@ -90,6 +94,7 @@ const ContractForm = ({
   ];
 
   const [errors, setErrors] = useState({});
+  const [uploading, setUploading] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -132,6 +137,41 @@ const ContractForm = ({
         occupiedUnits: selectedBuilding.occupiedUnits,
       }));
     }
+  };
+
+  const handleFileUpload = (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    setUploading(true);
+
+    // Simulate file upload process
+    setTimeout(() => {
+      const newPhotos = files.map((file, index) => ({
+        id: Date.now() + index,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: URL.createObjectURL(file),
+        uploadedAt: new Date().toISOString(),
+      }));
+
+      setFormData((prev) => ({
+        ...prev,
+        contractPhotos: [...prev.contractPhotos, ...newPhotos],
+      }));
+
+      setUploading(false);
+    }, 1000);
+  };
+
+  const handleRemovePhoto = (photoId) => {
+    setFormData((prev) => ({
+      ...prev,
+      contractPhotos: prev.contractPhotos.filter(
+        (photo) => photo.id !== photoId
+      ),
+    }));
   };
 
   const validateForm = () => {
@@ -540,6 +580,120 @@ const ContractForm = ({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Contract Photos */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <Paperclip
+                  className={`h-5 w-5 text-indigo-600 ${
+                    direction === "rtl" ? "ml-2" : "mr-2"
+                  }`}
+                />
+                {direction === "rtl" ? "مرفقات العقد" : "Contract Attachments"}
+              </h3>
+
+              {/* File Upload Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+                <input
+                  type="file"
+                  id="contract-photos"
+                  multiple
+                  accept="image/*,.pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="contract-photos"
+                  className="cursor-pointer flex flex-col items-center space-y-2"
+                >
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  ) : (
+                    <Upload className="h-8 w-8 text-gray-400" />
+                  )}
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {uploading ? (
+                      direction === "rtl" ? (
+                        "جاري الرفع..."
+                      ) : (
+                        "Uploading..."
+                      )
+                    ) : (
+                      <>
+                        <span className="font-medium text-indigo-600 hover:text-indigo-500">
+                          {direction === "rtl"
+                            ? "انقر لرفع الملفات"
+                            : "Click to upload files"}
+                        </span>
+                        <br />
+                        <span>
+                          {direction === "rtl"
+                            ? "أو اسحب وأفلت الملفات هنا"
+                            : "or drag and drop files here"}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {direction === "rtl"
+                      ? "PNG, JPG, PDF حتى 10MB"
+                      : "PNG, JPG, PDF up to 10MB"}
+                  </p>
+                </label>
+              </div>
+
+              {/* Uploaded Photos */}
+              {formData.contractPhotos.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {direction === "rtl"
+                      ? "الملفات المرفوعة"
+                      : "Uploaded Files"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {formData.contractPhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="relative bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3"
+                      >
+                        <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                          <div className="flex-shrink-0">
+                            {photo.type.startsWith("image/") ? (
+                              <Image className="h-8 w-8 text-blue-500" />
+                            ) : (
+                              <FileText className="h-8 w-8 text-red-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {photo.name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {(photo.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemovePhoto(photo.id)}
+                            className="flex-shrink-0 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {photo.type.startsWith("image/") && (
+                          <div className="mt-2">
+                            <img
+                              src={photo.url}
+                              alt={photo.name}
+                              className="w-full h-20 object-cover rounded border border-gray-200 dark:border-gray-600"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notes */}
