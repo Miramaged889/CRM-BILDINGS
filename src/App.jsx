@@ -14,7 +14,7 @@ import UnitDetailPage from "./pages/manager/units/UnitDetail";
 import TenantList from "./pages/manager/tenants/TenantList";
 import TenantDetail from "./pages/manager/tenants/TenantDetail";
 import PaymentsPage from "./pages/manager/Payments";
-import MaintenancePage from "./pages/manager/Maintenance";
+import CleaningPage from "./pages/manager/Cleaning";
 import ReportsPage from "./pages/manager/Reports";
 import StaffList from "./pages/manager/staff/StaffList";
 import StaffDetail from "./pages/manager/staff/StaffDetail";
@@ -24,6 +24,8 @@ import OwnerDetailPage from "./pages/manager/onwers/OwnerDetail";
 import BuildingsPage from "./pages/manager/buildings/Buildings";
 import BuildingDetailPage from "./pages/manager/buildings/BuildingDetail";
 import ManagerCalendarPage from "./pages/manager/Calendar";
+import Reservations from "./pages/manager/Reservations";
+import Stock from "./pages/manager/Stock";
 
 function App() {
   const { user } = useAuthStore();
@@ -64,12 +66,14 @@ function App() {
                     <Route path="/tenants" element={<TenantList />} />
                     <Route path="/tenants/:id" element={<TenantDetail />} />
                     <Route path="/payments" element={<PaymentsPage />} />
-                    <Route path="/maintenance" element={<MaintenancePage />} />
+                    <Route path="/cleaning" element={<CleaningPage />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/calendar" element={<ManagerCalendarPage />} />
                     <Route path="/staff" element={<StaffList />} />
                     <Route path="/staff/:id" element={<StaffDetail />} />
                     <Route path="/settings" element={<ManagerSettingsPage />} />
+                    <Route path="/reservation" element={<Reservations />} />
+                    <Route path="/stock" element={<Stock />} />
                   </Routes>
                 </ManagerLayout>
               </ProtectedRoute>

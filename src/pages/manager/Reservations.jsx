@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { useLanguageStore } from "../../../stores/languageStore";
+import { useLanguageStore } from "../../stores/languageStore";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -10,223 +10,167 @@ import {
   Eye,
   Edit,
   Trash2,
+  Calendar,
+  Clock,
+  User,
+  Building,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
   Phone,
   Mail,
   MapPin,
-  Calendar,
-  User,
-  Building,
 } from "lucide-react";
-import Card from "../../../components/ui/Card";
-import Button from "../../../components/ui/Button";
-import Avatar from "../../../components/ui/Avatar";
-import { TenantForm } from "../../../components/manger form";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Avatar from "../../components/ui/Avatar";
+import { ReservationForm } from "../../components/manger form";
 
-const TenantList = () => {
+const Reservations = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [rentalTypeFilter, setRentalTypeFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
-  const [editingTenant, setEditingTenant] = useState(null);
+  const [editingReservation, setEditingReservation] = useState(null);
 
-  const tenants = [
+  const reservations = [
     {
       id: 1,
-      name: "John Smith",
-      email: "john.smith@email.com",
-      phone: "+1 234 567 8900",
+      tenantName: "Ahmed Hassan",
+      tenantEmail: "ahmed.hassan@email.com",
+      tenantPhone: "+201234567890",
       unit: "A-101",
-      leaseStart: "2024-01-01",
-      leaseEnd: "2024-12-31",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1200,
-      deposit: 2400,
+      building: "Sunset Tower",
+      startDate: "2024-02-01",
+      endDate: "2024-02-15",
+      purpose: "Family Visit",
+      status: "confirmed",
+      guests: 4,
+      specialRequests: "Extra towels and pillows",
+      totalCost: 500,
+      deposit: 200,
       avatar:
         "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
     },
     {
       id: 2,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@email.com",
-      phone: "+1 234 567 8901",
+      tenantName: "Mona Ali",
+      tenantEmail: "mona.ali@email.com",
+      tenantPhone: "+201112223334",
       unit: "B-201",
-      leaseStart: "2024-02-15",
-      leaseEnd: "2025-02-14",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1500,
-      deposit: 3000,
+      building: "Palm Residency",
+      startDate: "2024-02-10",
+      endDate: "2024-02-20",
+      purpose: "Business Trip",
+      status: "pending",
+      guests: 2,
+      specialRequests: "Quiet environment",
+      totalCost: 800,
+      deposit: 300,
       avatar:
         "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
     },
     {
       id: 3,
-      name: "Mike Davis",
-      email: "mike.davis@email.com",
-      phone: "+1 234 567 8902",
-      unit: "A-103",
-      leaseStart: "2023-12-01",
-      leaseEnd: "2024-11-30",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1100,
-      deposit: 2200,
+      tenantName: "Omar Khalil",
+      tenantEmail: "omar.khalil@email.com",
+      tenantPhone: "+201998887766",
+      unit: "C-301",
+      building: "Nile Heights",
+      startDate: "2024-01-25",
+      endDate: "2024-01-30",
+      purpose: "Weekend Getaway",
+      status: "completed",
+      guests: 3,
+      specialRequests: "Late checkout",
+      totalCost: 600,
+      deposit: 250,
       avatar:
         "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
     },
     {
       id: 4,
-      name: "Emily Brown",
-      email: "emily.brown@email.com",
-      phone: "+1 234 567 8903",
-      unit: "C-301",
-      leaseStart: "2024-03-01",
-      leaseEnd: "2025-02-28",
-      status: "inactive",
-      rentalType: "monthly",
-      rent: 1800,
-      deposit: 3600,
+      tenantName: "Sarah Mohamed",
+      tenantEmail: "sarah.mohamed@email.com",
+      tenantPhone: "+201555666777",
+      unit: "A-102",
+      building: "Sunset Tower",
+      startDate: "2024-03-01",
+      endDate: "2024-03-10",
+      purpose: "Holiday",
+      status: "cancelled",
+      guests: 2,
+      specialRequests: "Pet-friendly",
+      totalCost: 900,
+      deposit: 400,
       avatar:
         "https://images.pexels.com/photos/712513/pexels-photo-712513.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 5,
-      name: "David Wilson",
-      email: "david.wilson@email.com",
-      phone: "+1 234 567 8904",
-      unit: "B-102",
-      leaseStart: "2024-04-01",
-      leaseEnd: "2025-03-31",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1350,
-      deposit: 2700,
-      avatar:
-        "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 6,
-      name: "Lisa Garcia",
-      email: "lisa.garcia@email.com",
-      phone: "+1 234 567 8905",
-      unit: "C-202",
-      leaseStart: "2024-05-15",
-      leaseEnd: "2025-05-14",
-      status: "pending",
-      rentalType: "monthly",
-      rent: 1600,
-      deposit: 3200,
-      avatar:
-        "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 7,
-      name: "Ahmed Hassan",
-      email: "ahmed.hassan@email.com",
-      phone: "+1 234 567 8906",
-      unit: "D-401",
-      leaseStart: "2024-01-15",
-      leaseEnd: "2024-01-20",
-      status: "active",
-      rentalType: "daily",
-      rent: 80,
-      deposit: 200,
-      avatar:
-        "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 8,
-      name: "Mona Ali",
-      email: "mona.ali@email.com",
-      phone: "+1 234 567 8907",
-      unit: "D-402",
-      leaseStart: "2024-02-01",
-      leaseEnd: "2024-02-05",
-      status: "active",
-      rentalType: "daily",
-      rent: 75,
-      deposit: 150,
-      avatar:
-        "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 9,
-      name: "Omar Khalil",
-      email: "omar.khalil@email.com",
-      phone: "+1 234 567 8908",
-      unit: "D-403",
-      leaseStart: "2024-03-10",
-      leaseEnd: "2024-03-15",
-      status: "completed",
-      rentalType: "daily",
-      rent: 90,
-      deposit: 180,
-      avatar:
-        "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
     },
   ];
 
   const statusColors = {
-    active:
+    confirmed:
       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
-    inactive:
-      "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
     pending:
       "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
     completed:
       "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
-  };
-
-  const rentalTypeColors = {
-    monthly:
-      "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800",
-    daily:
-      "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800",
+    cancelled:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
   };
 
   const getStatusColor = (status) => {
-    return statusColors[status] || statusColors.inactive;
+    return statusColors[status] || statusColors.pending;
   };
 
-  const getRentalTypeColor = (rentalType) => {
-    return rentalTypeColors[rentalType] || rentalTypeColors.monthly;
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "confirmed":
+        return <CheckCircle className="h-4 w-4" />;
+      case "pending":
+        return <AlertCircle className="h-4 w-4" />;
+      case "completed":
+        return <CheckCircle className="h-4 w-4" />;
+      case "cancelled":
+        return <XCircle className="h-4 w-4" />;
+      default:
+        return <AlertCircle className="h-4 w-4" />;
+    }
   };
 
-  const filteredTenants = tenants.filter((tenant) => {
+  const filteredReservations = reservations.filter((reservation) => {
     const matchesSearch =
-      tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.unit.toLowerCase().includes(searchTerm.toLowerCase());
+      reservation.tenantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reservation.tenantEmail
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      reservation.unit.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reservation.purpose.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      statusFilter === "all" || tenant.status === statusFilter;
-    const matchesRentalType =
-      rentalTypeFilter === "all" || tenant.rentalType === rentalTypeFilter;
-    return matchesSearch && matchesStatus && matchesRentalType;
+      statusFilter === "all" || reservation.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   const handleAddNew = () => {
-    setEditingTenant(null);
+    setEditingReservation(null);
     setShowForm(true);
   };
 
-  const handleEdit = (tenant) => {
-    setEditingTenant(tenant);
+  const handleEdit = (reservation) => {
+    setEditingReservation(reservation);
     setShowForm(true);
   };
 
-  const handleSaveTenant = (tenantData) => {
-    // In a real app, this would save to the backend
-    console.log("Saving tenant:", tenantData);
+  const handleSaveReservation = (reservationData) => {
+    console.log("Saving reservation:", reservationData);
     setShowForm(false);
-    setEditingTenant(null);
+    setEditingReservation(null);
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
-    setEditingTenant(null);
+    setEditingReservation(null);
   };
 
   return (
@@ -241,10 +185,10 @@ const TenantList = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-                {t("tenants.title")}
+                {t("reservations.title")}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {t("tenants.manageTenants")}
+                {t("reservations.manageReservations")}
               </p>
             </div>
 
@@ -257,7 +201,7 @@ const TenantList = () => {
                 <Plus
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
-                {t("tenants.addTenant")}
+                {t("reservations.addReservation")}
               </Button>
             </div>
           </div>
@@ -292,30 +236,21 @@ const TenantList = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
               >
-                <option value="all">{t("tenants.allStatus")}</option>
-                <option value="active">{t("tenants.active")}</option>
-                <option value="inactive">{t("tenants.inactive")}</option>
-                <option value="pending">{t("tenants.pending")}</option>
-                <option value="completed">{t("tenants.completed")}</option>
-              </select>
-              <select
-                value={rentalTypeFilter}
-                onChange={(e) => setRentalTypeFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
-              >
-                <option value="all">{t("tenants.allRentalTypes")}</option>
-                <option value="monthly">{t("tenants.monthly")}</option>
-                <option value="daily">{t("tenants.daily")}</option>
+                <option value="all">{t("reservations.allStatus")}</option>
+                <option value="confirmed">{t("reservations.confirmed")}</option>
+                <option value="pending">{t("reservations.pending")}</option>
+                <option value="completed">{t("reservations.completed")}</option>
+                <option value="cancelled">{t("reservations.cancelled")}</option>
               </select>
             </div>
           </Card>
         </motion.div>
 
-        {/* Tenants List */}
+        {/* Reservations List */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTenants.map((tenant, index) => (
+          {filteredReservations.map((reservation, index) => (
             <motion.div
-              key={tenant.id}
+              key={reservation.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 + 0.2 }}
@@ -325,70 +260,72 @@ const TenantList = () => {
                   <div className="flex items-center space-x-3 rtl:space-x-reverse">
                     <div className="relative">
                       <Avatar
-                        src={tenant.avatar}
-                        alt={tenant.name}
+                        src={reservation.avatar}
+                        alt={reservation.tenantName}
                         size="lg"
                         className="ring-2 ring-primary-200 dark:ring-primary-800"
                       />
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {tenant.name}
+                        {reservation.tenantName}
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {t("tenants.unit")}: {tenant.unit}
+                        {t("reservations.unit")}: {reservation.unit}
                       </p>
                     </div>
                   </div>
                   <div
-                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getRentalTypeColor(
-                      tenant.rentalType
+                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                      reservation.status
                     )}`}
                   >
-                    {t(`tenants.${tenant.rentalType}`)}
+                    <div className="flex items-center space-x-1 rtl:space-x-reverse">
+                      {getStatusIcon(reservation.status)}
+                      <span>{t(`reservations.${reservation.status}`)}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                    <Mail className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {tenant.email}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {tenant.phone}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("tenants.leaseStart")}:{" "}
-                      {new Date(tenant.leaseStart).toLocaleDateString()}
+                      {t("reservations.dates")}:{" "}
+                      {new Date(reservation.startDate).toLocaleDateString()} -{" "}
+                      {new Date(reservation.endDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <User className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {t("reservations.guests")}: {reservation.guests}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <Building className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("tenants.rentAmount")}: ${tenant.rent}/
-                      {tenant.rentalType === "daily" ? "day" : "month"}
+                      {t("reservations.purpose")}: {reservation.purpose}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {reservation.tenantPhone}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {t("tenants.leaseEnd")}:{" "}
-                    {new Date(tenant.leaseEnd).toLocaleDateString()}
+                    {t("reservations.totalCost")}: ${reservation.totalCost}
                   </div>
                   <div className="flex space-x-2 rtl:space-x-reverse">
-                    <Link to={`/tenants/${tenant.id}`}>
+                    <Link to={`/reservations/${reservation.id}`}>
                       <Button
                         size="sm"
                         variant="outline"
-                        title={t("tenants.view")}
+                        title={t("reservations.view")}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -396,16 +333,15 @@ const TenantList = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      title={t("tenants.edit")}
-                      onClick={() => handleEdit(tenant)}
+                      title={t("reservations.edit")}
+                      onClick={() => handleEdit(reservation)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-
                     <Button
                       size="sm"
                       variant="outline"
-                      title={t("tenants.delete")}
+                      title={t("reservations.delete")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -416,31 +352,31 @@ const TenantList = () => {
           ))}
         </div>
 
-        {filteredTenants.length === 0 && (
+        {filteredReservations.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-center py-12"
           >
             <div className="mb-4">
-              <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
+              <Calendar className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
             </div>
             <h3 className="text-xl font-semibold text-gray-500 dark:text-gray-400 mb-2">
-              {t("tenants.noTenantsFound")}
+              {t("reservations.noReservationsFound")}
             </h3>
             <p className="text-gray-400 dark:text-gray-500">
-              {t("tenants.tryDifferentSearch")}
+              {t("reservations.tryDifferentSearch")}
             </p>
           </motion.div>
         )}
 
-        {/* Tenant Form Modal */}
+        {/* Reservation Form Modal */}
         {showForm && (
-          <TenantForm
-            tenant={editingTenant}
-            onSave={handleSaveTenant}
+          <ReservationForm
+            reservation={editingReservation}
+            onSave={handleSaveReservation}
             onCancel={handleCloseForm}
-            isEdit={!!editingTenant}
+            isEdit={!!editingReservation}
           />
         )}
       </div>
@@ -448,4 +384,4 @@ const TenantList = () => {
   );
 };
 
-export default TenantList;
+export default Reservations;

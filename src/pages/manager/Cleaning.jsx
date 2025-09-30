@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   Plus,
   Search,
-  Wrench,
+  Sparkles,
   User,
   Eye,
   Edit,
@@ -15,18 +15,15 @@ import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Icon from "../../components/ui/Icon";
-import {
-  MaintenanceForm,
-  MaintenanceViewModal,
-} from "../../components/manger form";
+import { CleaningForm, CleaningViewModal } from "../../components/manger form";
 
-const Maintenance = () => {
+const Cleaning = () => {
   const { t, i18n } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [editingMaintenance, setEditingMaintenance] = useState(null);
-  const [viewingMaintenance, setViewingMaintenance] = useState(null);
+  const [editingCleaning, setEditingCleaning] = useState(null);
+  const [viewingCleaning, setViewingCleaning] = useState(null);
 
   const direction = i18n.language === "ar" ? "rtl" : "ltr";
 
@@ -34,23 +31,24 @@ const Maintenance = () => {
   const requests = [
     {
       id: 1,
-      title: "Leaky Faucet in Kitchen",
+      title: "Deep Kitchen Cleaning",
       unit: "A-101",
       tenant: "John Smith",
       date: "2024-01-15",
-      description: "Kitchen faucet has been dripping for 3 days",
-      completedBy: "Ahmed Hassan",
-      amount: 150.0,
+      description:
+        "Complete kitchen deep cleaning including appliances and cabinets",
+      completedBy: "Fatima Ahmed",
+      amount: 120.0,
       photos: [
         {
           id: 1,
-          name: "before_repair.jpg",
+          name: "before_cleaning.jpg",
           url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
           uploadedAt: "2024-01-15T10:30:00Z",
         },
         {
           id: 2,
-          name: "after_repair.jpg",
+          name: "after_cleaning.jpg",
           url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
           uploadedAt: "2024-01-15T14:30:00Z",
         },
@@ -58,17 +56,17 @@ const Maintenance = () => {
     },
     {
       id: 2,
-      title: "Broken Air Conditioning",
+      title: "Bathroom Sanitization",
       unit: "B-205",
       tenant: "Sarah Johnson",
       date: "2024-01-14",
-      description: "AC unit not cooling properly, temperature rising",
-      completedBy: "Mohamed Ali",
-      amount: 300.0,
+      description: "Complete bathroom sanitization and deep cleaning",
+      completedBy: "Aisha Mohamed",
+      amount: 80.0,
       photos: [
         {
           id: 3,
-          name: "ac_unit.jpg",
+          name: "bathroom_cleaning.jpg",
           url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
           uploadedAt: "2024-01-14T09:15:00Z",
         },
@@ -76,23 +74,24 @@ const Maintenance = () => {
     },
     {
       id: 3,
-      title: "Door Lock Replacement",
+      title: "Living Room Deep Clean",
       unit: "C-301",
       tenant: "Mike Davis",
       date: "2024-01-13",
-      description: "Front door lock needs to be replaced",
-      completedBy: "Omar Khalil",
-      amount: 200.0,
+      description:
+        "Complete living room cleaning including furniture and carpets",
+      completedBy: "Mariam Hassan",
+      amount: 150.0,
       photos: [
         {
           id: 4,
-          name: "old_lock.jpg",
+          name: "living_room_before.jpg",
           url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
           uploadedAt: "2024-01-13T11:00:00Z",
         },
         {
           id: 5,
-          name: "new_lock.jpg",
+          name: "living_room_after.jpg",
           url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
           uploadedAt: "2024-01-13T15:30:00Z",
         },
@@ -100,17 +99,17 @@ const Maintenance = () => {
     },
     {
       id: 4,
-      title: "Bathroom Heater Issue",
+      title: "Window Cleaning Service",
       unit: "D-402",
       tenant: "Emma Wilson",
       date: "2024-01-12",
-      description: "Bathroom heater not working during winter",
-      completedBy: "Hassan Mohamed",
-      amount: 180.0,
+      description: "Professional window cleaning for all apartment windows",
+      completedBy: "Nour Ali",
+      amount: 100.0,
       photos: [
         {
           id: 6,
-          name: "heater_repair.jpg",
+          name: "window_cleaning.jpg",
           url: "https://images.pexels.com/photos/271816/pexels-photo-271816.jpeg?auto=compress&cs=tinysrgb&w=400",
           uploadedAt: "2024-01-12T13:45:00Z",
         },
@@ -128,35 +127,35 @@ const Maintenance = () => {
   });
 
   const handleAddNew = () => {
-    setEditingMaintenance(null);
+    setEditingCleaning(null);
     setShowForm(true);
   };
 
-  const handleEdit = (maintenance) => {
-    setEditingMaintenance(maintenance);
+  const handleEdit = (cleaning) => {
+    setEditingCleaning(cleaning);
     setShowForm(true);
   };
 
-  const handleSaveMaintenance = (maintenanceData) => {
+  const handleSaveCleaning = (cleaningData) => {
     // In a real app, this would save to the backend
-    console.log("Saving maintenance:", maintenanceData);
+    console.log("Saving cleaning:", cleaningData);
     setShowForm(false);
-    setEditingMaintenance(null);
+    setEditingCleaning(null);
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
-    setEditingMaintenance(null);
+    setEditingCleaning(null);
   };
 
-  const handleView = (maintenance) => {
-    setViewingMaintenance(maintenance);
+  const handleView = (cleaning) => {
+    setViewingCleaning(cleaning);
     setShowViewModal(true);
   };
 
   const handleCloseViewModal = () => {
     setShowViewModal(false);
-    setViewingMaintenance(null);
+    setViewingCleaning(null);
   };
 
   return (
@@ -169,10 +168,10 @@ const Maintenance = () => {
       >
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {t("nav.maintenance")}
+            {t("nav.cleaning")}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {t("maintenance.manageRequests")}
+            {t("cleaning.manageRequests")}
           </p>
         </div>
 
@@ -183,13 +182,13 @@ const Maintenance = () => {
         >
           <Button
             size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 text-lg"
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-lg"
             onClick={handleAddNew}
           >
             <Plus
               className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
             />
-            {t("maintenance.newRequest")}
+            {t("cleaning.newRequest")}
           </Button>
         </div>
       </motion.div>
@@ -209,7 +208,7 @@ const Maintenance = () => {
               } top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500`}
             />
             <Input
-              placeholder={t("maintenance.searchRequests")}
+              placeholder={t("cleaning.searchRequests")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className={`${
@@ -230,8 +229,7 @@ const Maintenance = () => {
           <div className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t("maintenance.maintenanceRequests")} (
-                {filteredRequests.length})
+                {t("cleaning.cleaningRequests")} ({filteredRequests.length})
               </h3>
               <div
                 className={`mt-4 sm:mt-0 flex space-x-2 ${
@@ -261,11 +259,11 @@ const Maintenance = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-300 group"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-green-300 dark:hover:border-green-600 transition-all duration-300 group"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
                         {request.title}
                       </h4>
                       <div
@@ -273,8 +271,8 @@ const Maintenance = () => {
                           direction === "rtl" ? "space-x-reverse" : ""
                         } mb-3`}
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-full flex items-center justify-center">
-                          <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-full flex items-center justify-center">
+                          <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -311,10 +309,12 @@ const Maintenance = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200"
                         onClick={() => handleView(request)}
                         title={
-                          direction === "rtl" ? "عرض التفاصيل" : "View Details"
+                          direction === "rtl"
+                            ? "عرض تفاصيل التنظيف"
+                            : "View Cleaning Details"
                         }
                       >
                         <Eye className="h-4 w-4" />
@@ -325,7 +325,9 @@ const Maintenance = () => {
                         className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-200"
                         onClick={() => handleEdit(request)}
                         title={
-                          direction === "rtl" ? "تعديل الطلب" : "Edit Request"
+                          direction === "rtl"
+                            ? "تعديل طلب التنظيف"
+                            : "Edit Cleaning Request"
                         }
                       >
                         <Edit className="h-4 w-4" />
@@ -338,12 +340,12 @@ const Maintenance = () => {
 
             {filteredRequests.length === 0 && (
               <div className="text-center py-12">
-                <Wrench className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <Sparkles className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                   {t("common.noData")}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  {t("maintenance.noMaintenanceRequests")}
+                  {t("cleaning.noCleaningRequests")}
                 </p>
               </div>
             )}
@@ -351,20 +353,20 @@ const Maintenance = () => {
         </Card>
       </motion.div>
 
-      {/* Maintenance Form Modal */}
+      {/* Cleaning Form Modal */}
       {showForm && (
-        <MaintenanceForm
-          maintenance={editingMaintenance}
-          onSave={handleSaveMaintenance}
+        <CleaningForm
+          cleaning={editingCleaning}
+          onSave={handleSaveCleaning}
           onCancel={handleCloseForm}
-          isEdit={!!editingMaintenance}
+          isEdit={!!editingCleaning}
         />
       )}
 
-      {/* Maintenance View Modal */}
-      {showViewModal && viewingMaintenance && (
-        <MaintenanceViewModal
-          maintenance={viewingMaintenance}
+      {/* Cleaning View Modal */}
+      {showViewModal && viewingCleaning && (
+        <CleaningViewModal
+          cleaning={viewingCleaning}
           onClose={handleCloseViewModal}
           onEdit={handleEdit}
         />
@@ -373,4 +375,4 @@ const Maintenance = () => {
   );
 };
 
-export default Maintenance;
+export default Cleaning;

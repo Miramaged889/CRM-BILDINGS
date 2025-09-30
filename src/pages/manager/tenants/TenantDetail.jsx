@@ -54,47 +54,106 @@ const TenantDetail = () => {
   const [editingReview, setEditingReview] = useState(null);
 
   // Mock data - in real app, fetch by ID
+  const getTenantData = (tenantId) => {
+    // Sample data for different rental types
+    const tenantData = {
+      1: {
+        id: 1,
+        name: "John Smith",
+        email: "john.smith@email.com",
+        phone: "+1 234 567 8900",
+        unit: "A-101",
+        leaseStart: "2024-01-01",
+        leaseEnd: "2024-12-31",
+        status: "active",
+        rentalType: "monthly",
+        rent: 1200,
+        deposit: 2400,
+        avatar:
+          "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
+      },
+      7: {
+        id: 7,
+        name: "Ahmed Hassan",
+        email: "ahmed.hassan@email.com",
+        phone: "+1 234 567 8906",
+        unit: "D-401",
+        leaseStart: "2024-01-15",
+        leaseEnd: "2024-01-20",
+        status: "active",
+        rentalType: "daily",
+        rent: 80,
+        deposit: 200,
+        avatar:
+          "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
+      },
+    };
+
+    return tenantData[tenantId] || tenantData[1];
+  };
+
+  const baseTenant = getTenantData(parseInt(id));
   const tenant = {
-    id: 1,
-    name: "John Smith",
-    email: "john.smith@email.com",
-    phone: "+1 234 567 8900",
-    unit: "A-101",
-    leaseStart: "2024-01-01",
-    leaseEnd: "2024-12-31",
-    status: "active",
-    rent: 1200,
-    deposit: 2400,
-    avatar:
-      "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
+    ...baseTenant,
     emergencyContact: {
       name: "Jane Smith",
       phone: "+1 234 567 8901",
       relation: "Spouse",
     },
-    paymentHistory: [
-      {
-        id: 1,
-        date: "2024-01-01",
-        amount: 1200,
-        status: "paid",
-        method: "Bank Transfer",
-      },
-      {
-        id: 2,
-        date: "2024-02-01",
-        amount: 1200,
-        status: "paid",
-        method: "Bank Transfer",
-      },
-      {
-        id: 3,
-        date: "2024-03-01",
-        amount: 1200,
-        status: "pending",
-        method: "Bank Transfer",
-      },
-    ],
+    paymentHistory:
+      baseTenant.rentalType === "daily"
+        ? [
+            {
+              id: 1,
+              date: "2024-01-15",
+              amount: 80,
+              status: "paid",
+              method: "Cash",
+              period: "Day 1",
+            },
+            {
+              id: 2,
+              date: "2024-01-16",
+              amount: 80,
+              status: "paid",
+              method: "Cash",
+              period: "Day 2",
+            },
+            {
+              id: 3,
+              date: "2024-01-17",
+              amount: 80,
+              status: "pending",
+              method: "Cash",
+              period: "Day 3",
+            },
+          ]
+        : [
+            {
+              id: 1,
+              date: "2024-01-01",
+              amount: 1200,
+              status: "paid",
+              method: "Bank Transfer",
+              period: "January 2024",
+            },
+            {
+              id: 2,
+              date: "2024-02-01",
+              amount: 1200,
+              status: "paid",
+              method: "Bank Transfer",
+              period: "February 2024",
+            },
+            {
+              id: 3,
+              date: "2024-03-01",
+              amount: 1200,
+              status: "pending",
+              method: "Bank Transfer",
+              period: "March 2024",
+            },
+          ],
     maintenanceRequests: [
       {
         id: 1,
@@ -151,34 +210,55 @@ const TenantDetail = () => {
         category: "maintenance",
       },
     ],
-    leases: [
-      {
-        id: 1,
-        unit: "A-101",
-        startDate: "2024-01-01",
-        endDate: "2024-12-31",
-        rent: 1200,
-        deposit: 2400,
-        status: "active",
-        type: "apartment",
-        utilities: "Water, Electricity",
-        petPolicy: "No pets allowed",
-        parking: "1 space included",
-      },
-      {
-        id: 2,
-        unit: "A-101",
-        startDate: "2023-01-01",
-        endDate: "2023-12-31",
-        rent: 1100,
-        deposit: 2200,
-        status: "expired",
-        type: "apartment",
-        utilities: "Water, Electricity",
-        petPolicy: "No pets allowed",
-        parking: "1 space included",
-      },
-    ],
+    leases:
+      baseTenant.rentalType === "daily"
+        ? [
+            {
+              id: 1,
+              unit: baseTenant.unit,
+              startDate: baseTenant.leaseStart,
+              endDate: baseTenant.leaseEnd,
+              rent: baseTenant.rent,
+              deposit: baseTenant.deposit,
+              status: "active",
+              rentalType: "daily",
+              type: "short-term",
+              utilities: "All included",
+              petPolicy: "No pets allowed",
+              parking: "Temporary parking",
+            },
+          ]
+        : [
+            {
+              id: 1,
+              unit: baseTenant.unit,
+              startDate: baseTenant.leaseStart,
+              endDate: baseTenant.leaseEnd,
+              rent: baseTenant.rent,
+              deposit: baseTenant.deposit,
+              status: "active",
+              rentalType: "monthly",
+              type: "apartment",
+              utilities: "Water, Electricity",
+              petPolicy: "No pets allowed",
+              parking: "1 space included",
+            },
+            {
+              id: 2,
+              unit: baseTenant.unit,
+              startDate: "2023-01-01",
+              endDate: "2023-12-31",
+              rent: baseTenant.rent - 100,
+              deposit: baseTenant.deposit - 200,
+              status: "expired",
+              rentalType: "monthly",
+              type: "apartment",
+              utilities: "Water, Electricity",
+              petPolicy: "No pets allowed",
+              parking: "1 space included",
+            },
+          ],
+    rentalType: baseTenant.rentalType,
   };
 
   const statusColors = {
@@ -188,6 +268,15 @@ const TenantDetail = () => {
       "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
     pending:
       "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
+    completed:
+      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+  };
+
+  const rentalTypeColors = {
+    monthly:
+      "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800",
+    daily:
+      "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800",
   };
 
   const paymentStatusColors = {
@@ -196,6 +285,10 @@ const TenantDetail = () => {
       "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300",
     overdue:
       "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300",
+  };
+
+  const getRentalTypeColor = (rentalType) => {
+    return rentalTypeColors[rentalType] || rentalTypeColors.monthly;
   };
 
   const tabs = [
@@ -324,7 +417,8 @@ const TenantDetail = () => {
                           direction === "rtl" ? "ml-1" : "mr-1"
                         }`}
                       />
-                      ${tenant.rent}/month
+                      ${tenant.rent}/
+                      {tenant.rentalType === "daily" ? "day" : "month"}
                     </span>
                   </div>
                 </div>
@@ -574,7 +668,10 @@ const TenantDetail = () => {
                                 {t("tenants.rentAmount")}
                               </span>
                               <p className="font-semibold text-gray-900 dark:text-white">
-                                ${tenant.rent}/month
+                                ${tenant.rent}/
+                                {tenant.rentalType === "daily"
+                                  ? "day"
+                                  : "month"}
                               </p>
                             </div>
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -583,6 +680,20 @@ const TenantDetail = () => {
                               </span>
                               <p className="font-semibold text-gray-900 dark:text-white">
                                 ${tenant.deposit}
+                              </p>
+                            </div>
+                            <div
+                              className={`p-3 rounded-lg border ${
+                                tenant.rentalType === "daily"
+                                  ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+                                  : "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
+                              }`}
+                            >
+                              <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                                {t("tenants.rentalType")}
+                              </span>
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {t(`tenants.${tenant.rentalType}`)}
                               </p>
                             </div>
                           </div>
@@ -915,7 +1026,10 @@ const TenantDetail = () => {
                                   Rent:
                                 </span>
                                 <p className="font-semibold text-gray-900 dark:text-white">
-                                  ${lease.rent}/month
+                                  ${lease.rent}/
+                                  {lease.rentalType === "daily"
+                                    ? "day"
+                                    : "month"}
                                 </p>
                               </div>
                               <div>
@@ -925,6 +1039,15 @@ const TenantDetail = () => {
                                 <p className="font-semibold text-gray-900 dark:text-white">
                                   ${lease.deposit}
                                 </p>
+                              </div>
+                            </div>
+                            <div className="mb-3">
+                              <div
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRentalTypeColor(
+                                  lease.rentalType
+                                )}`}
+                              >
+                                {t(`tenants.${lease.rentalType}`)}
                               </div>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1037,7 +1160,9 @@ const TenantDetail = () => {
                       <span className="text-xl font-bold text-green-600 dark:text-green-400">
                         ${tenant.rent}
                       </span>
-                      <span className="text-gray-500 text-sm">/month</span>
+                      <span className="text-gray-500 text-sm">
+                        /{tenant.rentalType === "daily" ? "day" : "month"}
+                      </span>
                     </div>
                   </h3>
                 </div>
