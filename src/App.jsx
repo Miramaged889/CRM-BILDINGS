@@ -24,7 +24,6 @@ import OwnerDetailPage from "./pages/manager/onwers/OwnerDetail";
 import BuildingsPage from "./pages/manager/buildings/Buildings";
 import BuildingDetailPage from "./pages/manager/buildings/BuildingDetail";
 import ManagerCalendarPage from "./pages/manager/Calendar";
-import Reservations from "./pages/manager/Reservations";
 import Stock from "./pages/manager/Stock";
 
 function App() {
@@ -72,7 +71,7 @@ function App() {
                     <Route path="/staff" element={<StaffList />} />
                     <Route path="/staff/:id" element={<StaffDetail />} />
                     <Route path="/settings" element={<ManagerSettingsPage />} />
-                    <Route path="/reservation" element={<Reservations />} />
+                    
                     <Route path="/stock" element={<Stock />} />
                   </Routes>
                 </ManagerLayout>

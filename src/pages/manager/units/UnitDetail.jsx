@@ -25,12 +25,14 @@ import {
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
+import ReservationForm from "../../../components/manger form/ReservationForm";
 
 const UnitDetail = () => {
   const { id } = useParams();
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showReservationForm, setShowReservationForm] = useState(false);
 
   // Mock data - in real app, fetch by ID
   const unit = {
@@ -100,6 +102,19 @@ const UnitDetail = () => {
       "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300",
   };
 
+  const handleReservationClick = () => {
+    setShowReservationForm(true);
+  };
+
+  const handleCloseReservationForm = () => {
+    setShowReservationForm(false);
+  };
+
+  const handleSaveReservation = (reservationData) => {
+    console.log("Saving reservation:", reservationData);
+    setShowReservationForm(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="p-4 md:p-6 space-y-6">
@@ -144,6 +159,15 @@ const UnitDetail = () => {
             </div>
 
             <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                onClick={handleReservationClick}
+                className="bg-green-600 hover:bg-green-700 text-white shadow-md flex-1 sm:flex-none"
+              >
+                <Calendar
+                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                />
+                {direction === "rtl" ? "حجز جديد" : "New Reservation"}
+              </Button>
               <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md flex-1 sm:flex-none">
                 <Edit
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
@@ -608,6 +632,15 @@ const UnitDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Reservation Form */}
+      {showReservationForm && (
+        <ReservationForm
+          onSave={handleSaveReservation}
+          onCancel={handleCloseReservationForm}
+          isEdit={false}
+        />
+      )}
     </div>
   );
 };

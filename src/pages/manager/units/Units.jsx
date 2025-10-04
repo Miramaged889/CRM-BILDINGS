@@ -25,6 +25,8 @@ const Units = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const units = [
     {
@@ -36,6 +38,8 @@ const Units = () => {
       tenant: "John Smith",
       city: "Dubai",
       district: "Downtown",
+      createdAt: "2025-10-15",
+      leaseStart: "2025-10-01",
       image:
         "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -48,6 +52,8 @@ const Units = () => {
       tenant: null,
       city: "Dubai",
       district: "Downtown",
+      createdAt: "2025-10-10",
+      leaseStart: null,
       image:
         "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -60,6 +66,8 @@ const Units = () => {
       tenant: "Sarah Johnson",
       city: "Dubai",
       district: "Palm Jumeirah",
+      createdAt: "2025-10-20",
+      leaseStart: "2025-10-15",
       image:
         "https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -72,6 +80,8 @@ const Units = () => {
       tenant: null,
       city: "Cairo",
       district: "Zamalek",
+      createdAt: "2025-10-05",
+      leaseStart: null,
       image:
         "https://images.pexels.com/photos/1957477/pexels-photo-1957477.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -84,6 +94,8 @@ const Units = () => {
       tenant: null,
       city: "Cairo",
       district: "Maadi",
+      createdAt: "2025-10-28",
+      leaseStart: null,
       image:
         "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -96,6 +108,8 @@ const Units = () => {
       tenant: "Mike Davis",
       city: "Dubai",
       district: "Marina",
+      createdAt: "2025-10-25",
+      leaseStart: "2025-10-01",
       image:
         "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -108,6 +122,8 @@ const Units = () => {
       tenant: null,
       city: "Dubai",
       district: "Jumeirah",
+      createdAt: "2025-10-12",
+      leaseStart: null,
       image:
         "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -120,6 +136,8 @@ const Units = () => {
       tenant: "Ahmed Al-Rashid",
       city: "Dubai",
       district: "Burj Khalifa",
+      createdAt: "2025-10-15",
+      leaseStart: "2025-10-20",
       image:
         "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -132,6 +150,8 @@ const Units = () => {
       tenant: null,
       city: "Cairo",
       district: "New Cairo",
+      createdAt: "2025-10-20",
+      leaseStart: null,
       image:
         "https://images.pexels.com/photos/2219024/pexels-photo-2219024.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -144,6 +164,8 @@ const Units = () => {
       tenant: "Fashion Store LLC",
       city: "Dubai",
       district: "Dubai Mall",
+      createdAt: "2025-10-30",
+      leaseStart: "2025-10-15",
       image:
         "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
     },
@@ -173,12 +195,30 @@ const Units = () => {
     const matchesCity = cityFilter === "all" || unit.city === cityFilter;
     const matchesDistrict =
       districtFilter === "all" || unit.district === districtFilter;
+
+    // Date filtering logic
+    let matchesDate = true;
+    if (fromDate || toDate) {
+      const unitDate = new Date(unit.createdAt);
+      const from = fromDate ? new Date(fromDate) : null;
+      const to = toDate ? new Date(toDate) : null;
+
+      if (from && to) {
+        matchesDate = unitDate >= from && unitDate <= to;
+      } else if (from) {
+        matchesDate = unitDate >= from;
+      } else if (to) {
+        matchesDate = unitDate <= to;
+      }
+    }
+
     return (
       matchesSearch &&
       matchesStatus &&
       matchesType &&
       matchesCity &&
-      matchesDistrict
+      matchesDistrict &&
+      matchesDate
     );
   });
 
@@ -233,7 +273,7 @@ const Units = () => {
             </div>
 
             {/* Filter Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4">
               {/* Status Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -340,6 +380,32 @@ const Units = () => {
                 </select>
               </div>
 
+              {/* From Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "من تاريخ" : "From Date"}
+                </label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                />
+              </div>
+
+              {/* To Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "إلى تاريخ" : "To Date"}
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                />
+              </div>
+
               {/* Clear Filters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -353,6 +419,8 @@ const Units = () => {
                     setTypeFilter("all");
                     setCityFilter("all");
                     setDistrictFilter("all");
+                    setFromDate("");
+                    setToDate("");
                   }}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-600 transition-all duration-200"
                 >
@@ -552,11 +620,20 @@ const Units = () => {
             <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
           </div>
           <h3 className="text-xl font-semibold text-gray-500 dark:text-gray-400 mb-2">
-            {t("units.noUnitsFound")}
+            {direction === "rtl" ? "لا توجد وحدات" : "No Units Found"}
           </h3>
-          <p className="text-gray-400 dark:text-gray-500">
-            {t("units.tryDifferentSearch")}
+          <p className="text-gray-400 dark:text-gray-500 mb-4">
+            {direction === "rtl"
+              ? "لم يتم العثور على وحدات تطابق معايير البحث المحددة"
+              : "No units match the specified search criteria"}
           </p>
+          {(fromDate || toDate) && (
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              {direction === "rtl"
+                ? "جرب تغيير نطاق التاريخ أو مسح فلاتر التاريخ"
+                : "Try adjusting the date range or clearing date filters"}
+            </p>
+          )}
         </motion.div>
       )}
     </div>

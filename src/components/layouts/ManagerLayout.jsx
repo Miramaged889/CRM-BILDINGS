@@ -29,7 +29,6 @@ const managerNavItems = [
   { name: "nav.units", href: "/units", icon: "Building" },
   { name: "nav.tenants", href: "/tenants", icon: "Users" },
   { name: "nav.owners", href: "/owners", icon: "UserSquare2" },
-  { name: "nav.reservation", href: "/reservation", icon: "Calendar" },
   { name: "nav.stock", href: "/stock", icon: "Box" },
   { name: "nav.payments", href: "/payments", icon: "CreditCard" },
   { name: "nav.cleaning", href: "/cleaning", icon: "Sparkles" },

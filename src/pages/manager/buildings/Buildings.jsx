@@ -28,6 +28,8 @@ const Buildings = () => {
   const [editingBuilding, setEditingBuilding] = useState(null);
   const [cityFilter, setCityFilter] = useState("all");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const buildings = [
     {
@@ -44,6 +46,8 @@ const Buildings = () => {
       buildingType: "residential",
       yearBuilt: 2020,
       floors: 8,
+      createdAt: "2025-10-15",
+      constructionStart: "2025-10-01",
       description:
         "A modern residential tower with stunning city views and premium amenities.",
       owners: [
@@ -107,6 +111,8 @@ const Buildings = () => {
       buildingType: "commercial",
       yearBuilt: 2018,
       floors: 6,
+      createdAt: "2025-10-10",
+      constructionStart: "2025-10-05",
       description: "Premium commercial building in the heart of Palm District.",
       owners: [
         {
@@ -148,6 +154,8 @@ const Buildings = () => {
       buildingType: "mixed",
       yearBuilt: 2019,
       floors: 12,
+      createdAt: "2025-10-20",
+      constructionStart: "2025-10-15",
       description:
         "Mixed-use building with residential and commercial spaces overlooking the Nile.",
       owners: [
@@ -284,7 +292,24 @@ const Buildings = () => {
     const matchesCity = cityFilter === "all" || b.city === cityFilter;
     const matchesDistrict =
       districtFilter === "all" || b.district === districtFilter;
-    return matchesSearch && matchesCity && matchesDistrict;
+
+    // Date filtering logic
+    let matchesDate = true;
+    if (fromDate || toDate) {
+      const buildingDate = new Date(b.createdAt);
+      const from = fromDate ? new Date(fromDate) : null;
+      const to = toDate ? new Date(toDate) : null;
+
+      if (from && to) {
+        matchesDate = buildingDate >= from && buildingDate <= to;
+      } else if (from) {
+        matchesDate = buildingDate >= from;
+      } else if (to) {
+        matchesDate = buildingDate <= to;
+      }
+    }
+
+    return matchesSearch && matchesCity && matchesDistrict && matchesDate;
   });
 
   return (
@@ -333,7 +358,7 @@ const Buildings = () => {
           </div>
 
           {/* Filter Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* City Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -376,6 +401,32 @@ const Buildings = () => {
               </select>
             </div>
 
+            {/* From Date Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {direction === "rtl" ? "من تاريخ" : "From Date"}
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+              />
+            </div>
+
+            {/* To Date Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {direction === "rtl" ? "إلى تاريخ" : "To Date"}
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+              />
+            </div>
+
             {/* Clear Filters */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -387,6 +438,8 @@ const Buildings = () => {
                   setSearchTerm("");
                   setCityFilter("all");
                   setDistrictFilter("all");
+                  setFromDate("");
+                  setToDate("");
                 }}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-600 transition-all duration-200"
               >
@@ -473,7 +526,7 @@ const Buildings = () => {
                       {b.vacantUnits}
                     </p>
                     <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                      {direction === "rtl" ? "شاغرة" : "Vacant"}
+                      {direction === "rtl" ? "فارغة" : "Empty"}
                     </p>
                   </div>
                 </div>
@@ -485,8 +538,7 @@ const Buildings = () => {
                       {b.occupiedUnits}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "شاغرة" : "Vacant"}:{" "}
-                      {b.vacantUnits}
+                      {direction === "rtl" ? "فارغة" : "Empty"}: {b.vacantUnits}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -527,6 +579,34 @@ const Buildings = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* Empty State */}
+      {filtered.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-12"
+        >
+          <div className="mb-4">
+            <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-500 dark:text-gray-400 mb-2">
+            {direction === "rtl" ? "لا توجد مباني" : "No Buildings Found"}
+          </h3>
+          <p className="text-gray-400 dark:text-gray-500 mb-4">
+            {direction === "rtl"
+              ? "لم يتم العثور على مباني تطابق معايير البحث المحددة"
+              : "No buildings match the specified search criteria"}
+          </p>
+          {(fromDate || toDate) && (
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              {direction === "rtl"
+                ? "جرب تغيير نطاق التاريخ أو مسح فلاتر التاريخ"
+                : "Try adjusting the date range or clearing date filters"}
+            </p>
+          )}
+        </motion.div>
+      )}
 
       {/* Forms */}
       {showForm && (

@@ -27,6 +27,7 @@ import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import { BuildingForm } from "../../../components/manger form";
+import ReservationForm from "../../../components/manger form/ReservationForm";
 
 const BuildingDetail = () => {
   const { direction } = useLanguageStore();
@@ -36,6 +37,7 @@ const BuildingDetail = () => {
 
   const [building, setBuilding] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showReservationForm, setShowReservationForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -422,6 +424,19 @@ const BuildingDetail = () => {
     setShowForm(false);
   };
 
+  const handleReservationClick = () => {
+    setShowReservationForm(true);
+  };
+
+  const handleCloseReservationForm = () => {
+    setShowReservationForm(false);
+  };
+
+  const handleSaveReservation = (reservationData) => {
+    console.log("Saving reservation:", reservationData);
+    setShowReservationForm(false);
+  };
+
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
@@ -469,7 +484,7 @@ const BuildingDetail = () => {
   const translateStatus = (status) => {
     if (status === "occupied")
       return direction === "rtl" ? "مؤجرة" : "Occupied";
-    if (status === "vacant") return direction === "rtl" ? "شاغرة" : "Vacant";
+    if (status === "vacant") return direction === "rtl" ? "فارغة" : "Empty";
     if (status === "maintenance")
       return direction === "rtl" ? "صيانة" : "Maintenance";
     return status;
@@ -607,6 +622,15 @@ const BuildingDetail = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 mt-4 sm:mt-0">
+          <Button
+            onClick={handleReservationClick}
+            className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Calendar
+              className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+            />
+            {direction === "rtl" ? "حجز جديد" : "New Reservation"}
+          </Button>
           <Button onClick={handleEdit} className="flex items-center">
             <Edit
               className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
@@ -654,7 +678,7 @@ const BuildingDetail = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {direction === "rtl" ? "الوحدات الشاغرة" : "Vacant Units"}
+                {direction === "rtl" ? "الوحدات الفارغة" : "Empty Units"}
               </p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {building.vacantUnits}
@@ -876,7 +900,7 @@ const BuildingDetail = () => {
                       </p>
                       <p className="font-medium text-gray-900 dark:text-white">
                         {unit.tenant ||
-                          (direction === "rtl" ? "شاغر" : "Vacant")}
+                          (direction === "rtl" ? "فارغ" : "Empty")}
                       </p>
                     </div>
                   </div>
@@ -987,7 +1011,7 @@ const BuildingDetail = () => {
                   {building.vacantUnits}
                 </div>
                 <div className="text-sm text-red-700 dark:text-red-300">
-                  {direction === "rtl" ? "وحدات شاغرة" : "Vacant Units"}
+                  {direction === "rtl" ? "وحدات فارغة" : "Empty Units"}
                 </div>
               </div>
             </div>
@@ -1174,6 +1198,15 @@ const BuildingDetail = () => {
           onSave={handleSaveBuilding}
           onCancel={handleCloseForm}
           isEdit={true}
+        />
+      )}
+
+      {/* Reservation Form */}
+      {showReservationForm && (
+        <ReservationForm
+          onSave={handleSaveReservation}
+          onCancel={handleCloseReservationForm}
+          isEdit={false}
         />
       )}
     </div>
