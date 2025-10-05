@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { Check } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../../../stores/languageStore";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,11 @@ const BuildingDetail = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [unitKind, setUnitKind] = useState("");
+  const [onlyEmpty, setOnlyEmpty] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(null);
 
   // Mock data - in real app, this would come from API
   const mockBuildings = [
@@ -424,7 +430,8 @@ const BuildingDetail = () => {
     setShowForm(false);
   };
 
-  const handleReservationClick = () => {
+  const handleReservationClick = (unit = null) => {
+    setSelectedUnit(unit);
     setShowReservationForm(true);
   };
 
@@ -552,14 +559,32 @@ const BuildingDetail = () => {
     });
   };
 
-  const filteredUnits =
-    building?.units?.filter((unit) =>
-      [unit.number, unit.tenant, unit.type].some(
-        (field) =>
-          field &&
-          field.toString().toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    ) || [];
+  const uniqueUnitTypes = useMemo(() => {
+    return Array.from(
+      new Set((building?.units || []).map((u) => u.type).filter(Boolean))
+    );
+  }, [building]);
+
+  const filteredUnits = useMemo(() => {
+    const matchesSearch = (unit) =>
+      [unit.number, unit.tenant, unit.type].some((field) =>
+        field?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+    // In this mock, date range acts as an availability filter.
+    // When a date range is provided, we treat only "vacant" units as available.
+    const hasDateRange = Boolean(fromDate && toDate);
+
+    return (
+      building?.units?.filter((unit) => {
+        if (!matchesSearch(unit)) return false;
+        if (unitKind && unit.type !== unitKind) return false;
+        if (onlyEmpty && unit.status !== "vacant") return false;
+        if (hasDateRange && unit.status !== "vacant") return false;
+        return true;
+      }) || []
+    );
+  }, [building, searchTerm, unitKind, onlyEmpty, fromDate, toDate]);
 
   if (loading) {
     return (
@@ -859,24 +884,86 @@ const BuildingDetail = () => {
                 />
                 {direction === "rtl" ? "قائمة الوحدات" : "Units List"}
               </h3>
-              <div className="relative max-w-sm">
-                <Search
-                  className={`absolute ${
-                    direction === "rtl" ? "right-3" : "left-3"
-                  } top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4`}
+            </div>
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  {direction === "rtl" ? "من تاريخ" : "From date"}
+                </label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={
-                    direction === "rtl"
-                      ? "بحث في الوحدات..."
-                      : "Search units..."
-                  }
-                  className={`${
-                    direction === "rtl" ? "pr-10 pl-4" : "pl-10 pr-4"
-                  }`}
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  {direction === "rtl" ? "إلى تاريخ" : "To date"}
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  {direction === "rtl" ? "نوع الوحدة" : "Unit kind"}
+                </label>
+                <select
+                  value={unitKind}
+                  onChange={(e) => setUnitKind(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option
+                    value=""
+                    className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    {direction === "rtl" ? "الكل" : "All"}
+                  </option>
+                  {uniqueUnitTypes.map((t) => (
+                    <option
+                      key={t}
+                      value={t}
+                      className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col justify-end">
+                <div className="relative">
+                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={onlyEmpty}
+                        onChange={(e) => setOnlyEmpty(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div
+                        className={`w-5 h-5 rounded border-2 transition-all duration-200 ${
+                          onlyEmpty
+                            ? "bg-primary-600 border-primary-600 dark:bg-primary-500 dark:border-primary-500"
+                            : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 hover:border-primary-400 dark:hover:border-primary-400"
+                        }`}
+                      >
+                        {onlyEmpty && (
+                          <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 select-none">
+                      {direction === "rtl"
+                        ? "عرض الفارغة فقط"
+                        : "Only empty units"}
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
             <div className="space-y-3">
@@ -924,6 +1011,18 @@ const BuildingDetail = () => {
                     >
                       {translateStatus(unit.status)}
                     </span>
+                    <Button
+                      size="sm"
+                      onClick={() => handleReservationClick(unit)}
+                      className="ml-2 whitespace-nowrap"
+                    >
+                      <Calendar
+                        className={`h-4 w-4 ${
+                          direction === "rtl" ? "ml-2" : "mr-2"
+                        }`}
+                      />
+                      {direction === "rtl" ? "حجز" : "Reservation"}
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -1204,8 +1303,17 @@ const BuildingDetail = () => {
       {/* Reservation Form */}
       {showReservationForm && (
         <ReservationForm
+          reservation={{
+            unit: selectedUnit?.number || "",
+            building: building?.name || "",
+            startDate: fromDate || "",
+            endDate: toDate || "",
+          }}
           onSave={handleSaveReservation}
-          onCancel={handleCloseReservationForm}
+          onCancel={() => {
+            setSelectedUnit(null);
+            handleCloseReservationForm();
+          }}
           isEdit={false}
         />
       )}
