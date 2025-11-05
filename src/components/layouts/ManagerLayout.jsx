@@ -1,53 +1,34 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useAuthStore } from "../../stores/authStore";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { logoutUser } from "../../store/slices/authSlice";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useThemeStore } from "../../stores/themeStore";
-import {
-  Menu,
-  X,
-  Bell,
-  Search,
-  LogOut,
-  User,
-  Settings,
-  ChevronDown,
-  Sun,
-  Moon,
-  Globe,
-} from "lucide-react";
+import { Menu, X, Bell, Search, LogOut, Sun, Moon, Globe } from "lucide-react";
 import Icon from "../ui/Icon";
-import Avatar from "../ui/Avatar";
-import Button from "../ui/Button";
 import Input from "../ui/Input";
 
 const managerNavItems = [
   { name: "nav.dashboard", href: "/dashboard", icon: "LayoutDashboard" },
-  { name: "nav.buildings", href: "/buildings", icon: "Building2" },
   { name: "nav.units", href: "/units", icon: "Building" },
   { name: "nav.tenants", href: "/tenants", icon: "Users" },
   { name: "nav.owners", href: "/owners", icon: "UserSquare2" },
   { name: "nav.stock", href: "/stock", icon: "Box" },
   { name: "nav.payments", href: "/payments", icon: "CreditCard" },
-  { name: "nav.cleaning", href: "/cleaning", icon: "Sparkles" },
   { name: "nav.reports", href: "/reports", icon: "BarChart3" },
   { name: "nav.calendar", href: "/calendar", icon: "Calendar" },
-  { name: "nav.staff", href: "/staff", icon: "UserCog" },
-  { name: "nav.settings", href: "/settings", icon: "Settings" },
+  { name: "nav.citiesDistricts", href: "/cities-districts", icon: "MapPin" },
 ];
 
 const ManagerLayout = ({ children }) => {
   const { t } = useTranslation();
-  const { user, logout } = useAuthStore();
+  const dispatch = useAppDispatch();
+  const { count } = useAppSelector((state) => state.notifications);
   const { direction, toggleLanguage } = useLanguageStore();
   const { isDark, toggleTheme } = useThemeStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-  const languageDropdownRef = useRef(null);
 
   // Initialize language and direction
   useEffect(() => {
@@ -56,26 +37,6 @@ const ManagerLayout = ({ children }) => {
     document.documentElement.dir = direction;
     document.documentElement.lang = language;
     document.body.dir = direction;
-  }, []);
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setUserDropdownOpen(false);
-      }
-      if (
-        languageDropdownRef.current &&
-        !languageDropdownRef.current.contains(event.target)
-      ) {
-        setLanguageDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
   }, []);
 
   const sidebarVariants = {
@@ -252,9 +213,33 @@ const ManagerLayout = ({ children }) => {
 
         {/* Sidebar Footer */}
         <motion.div
-          className="p-3 border-t border-gray-200 dark:border-gray-700"
+          className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-3"
           variants={contentVariants}
         >
+          {/* Logout Button */}
+          <motion.button
+            onClick={() => dispatch(logoutUser())}
+            className="w-full flex items-center space-x-3 rtl:space-x-reverse px-3 py-2.5 rounded-lg transition-all duration-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 hover:shadow-md hover:scale-[1.01] group"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+          >
+            <motion.div
+              className="relative z-10"
+              whileHover={{ scale: 1.1 }}
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 10,
+              }}
+            >
+              <LogOut className="h-4 w-4 transition-all duration-300 group-hover:text-red-700 dark:group-hover:text-red-300" />
+            </motion.div>
+            <span className="text-sm font-medium transition-all duration-300 relative z-10">
+              {t("nav.logout")}
+            </span>
+          </motion.button>
+
+          {/* System Status */}
           <div className="flex items-center space-x-2 rtl:space-x-reverse p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
             <div className="w-6 h-6 bg-gradient-to-br from-primary-500 to-primary-600 rounded-md flex items-center justify-center">
               <Icon name="Settings" className="h-3 w-3 text-white" />
@@ -278,7 +263,7 @@ const ManagerLayout = ({ children }) => {
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-4 py-3"
+          className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-4 py-4"
         >
           <div className="flex items-center justify-between">
             {/* Left side */}
@@ -328,14 +313,20 @@ const ManagerLayout = ({ children }) => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Bell className="h-4 w-4 text-gray-500" />
-                <motion.span
-                  className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                >
-                  3
-                </motion.span>
+                {count > 0 && (
+                  <motion.span
+                    className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 30,
+                    }}
+                  >
+                    {count > 9 ? "9+" : count}
+                  </motion.span>
+                )}
               </motion.button>
 
               {/* Theme Toggle */}
@@ -354,121 +345,18 @@ const ManagerLayout = ({ children }) => {
               </motion.button>
 
               {/* Language Toggle */}
-              <div className="relative" ref={languageDropdownRef}>
-                <motion.button
-                  onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  title={t("common.language")}
-                >
-                  <Globe className="h-4 w-4 text-gray-500" />
-                </motion.button>
-
-                {/* Language Dropdown Menu */}
-                <AnimatePresence>
-                  {languageDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className={`absolute ${
-                        direction === "rtl" ? "left-0" : "right-0"
-                      } mt-2 w-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50`}
-                    >
-                      <button
-                        onClick={() => {
-                          toggleLanguage("en");
-                          setLanguageDropdownOpen(false);
-                        }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 rtl:space-x-reverse"
-                      >
-                        <span className="text-sm">🇺🇸</span>
-                        <span>English</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          toggleLanguage("ar");
-                          setLanguageDropdownOpen(false);
-                        }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 rtl:space-x-reverse"
-                      >
-                        <span className="text-sm">🇸🇦</span>
-                        <span>العربية</span>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* User Dropdown */}
-              <div className="relative" ref={dropdownRef}>
-                <motion.button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center space-x-2 rtl:space-x-reverse p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                >
-                  <Avatar src={user?.avatar} alt={user?.name} size="sm" />
-                  <div className="hidden sm:block text-left">
-                    <p className="text-xs font-medium text-gray-900 dark:text-white">
-                      {user?.name}
-                    </p>
-                    <p className="text-xs text-gray-500 capitalize">
-                      {t(`common.${user?.role}`)}
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={`h-3 w-3 text-gray-500 transition-transform duration-200 ${
-                      userDropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </motion.button>
-
-                {/* Dropdown Menu */}
-                <AnimatePresence>
-                  {userDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className={`absolute ${
-                        direction === "rtl" ? "left-0" : "right-0"
-                      } mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50`}
-                    >
-                      <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {user?.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{user?.email}</p>
-                      </div>
-
-                      <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 rtl:space-x-reverse">
-                        <User className="h-4 w-4" />
-                        <span>{t("common.profile")}</span>
-                      </button>
-
-                      <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 rtl:space-x-reverse">
-                        <Settings className="h-4 w-4" />
-                        <span>{t("common.settings")}</span>
-                      </button>
-
-                      <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-
-                      <button
-                        onClick={logout}
-                        className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2 rtl:space-x-reverse"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span>{t("nav.logout")}</span>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <motion.button
+                onClick={() => {
+                  const currentLang = useLanguageStore.getState().language;
+                  toggleLanguage(currentLang === "ar" ? "en" : "ar");
+                }}
+                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                title={t("common.language")}
+              >
+                <Globe className="h-4 w-4 text-gray-500" />
+              </motion.button>
             </div>
           </div>
         </motion.header>

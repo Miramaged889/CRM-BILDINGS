@@ -1,8 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useThemeStore } from "../../stores/themeStore";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { fetchOwners } from "../../store/slices/ownersSlice";
+import {
+  fetchCompanyRevenue,
+  fetchOwnerPayments,
+} from "../../store/slices/paymentsSlice";
+// Note: fetchRevenueReport is not used as the /reports/revenue endpoint doesn't exist
+// import { fetchRevenueReport } from "../../store/slices/reportsSlice";
+import jsPDF from "jspdf";
+import { autoTable } from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   Download,
   Calendar,
@@ -24,6 +35,7 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -41,6 +53,7 @@ import { Bar, Line, Doughnut } from "react-chartjs-2";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Icon from "../../components/ui/Icon";
+import toast from "react-hot-toast";
 
 ChartJS.register(
   CategoryScale,
@@ -58,6 +71,20 @@ const Reports = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
   const { isDark } = useThemeStore();
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const { owners } = useAppSelector((state) => state.owners);
+  const {
+    companyRevenue,
+    ownerPayments,
+    isLoading: paymentsLoading,
+  } = useAppSelector((state) => state.payments);
+  // Note: revenueReport endpoint doesn't exist, using companyRevenue instead
+  // const { revenueReport, isLoading: reportsLoading } = useAppSelector(
+  //   (state) => state.reports
+  // );
+
   const [selectedReport, setSelectedReport] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [selectedOwner, setSelectedOwner] = useState("all");
@@ -69,14 +96,43 @@ const Reports = () => {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Mock data for owners
-  const availableOwners = [
-    { id: "all", name: direction === "rtl" ? "جميع الملاك" : "All Owners" },
-    { id: "ahmed-ali", name: "Ahmed Ali" },
-    { id: "mona-hassan", name: "Mona Hassan" },
-    { id: "omar-mahmoud", name: "Omar Mahmoud" },
-    { id: "fatima-ahmed", name: "Fatima Ahmed" },
-  ];
+  // Fetch owners and revenue data on mount
+  useEffect(() => {
+    dispatch(fetchOwners());
+    dispatch(fetchCompanyRevenue());
+  }, [dispatch]);
+
+  // Refresh company revenue when date range changes (if API supports date filtering)
+  // Note: The reports/revenue endpoint doesn't exist, so we use company revenue data
+  useEffect(() => {
+    // Refresh company revenue data
+    dispatch(fetchCompanyRevenue());
+  }, [dateRange, dispatch]);
+
+  // Fetch owner payments data when owner is selected
+  useEffect(() => {
+    if (selectedOwner !== "all" && selectedOwner) {
+      if (!ownerPayments[selectedOwner]) {
+        dispatch(fetchOwnerPayments(selectedOwner));
+      }
+    }
+  }, [selectedOwner, ownerPayments, dispatch]);
+
+  // Build available owners list from API
+  const availableOwners = React.useMemo(() => {
+    const ownersList = [
+      { id: "all", name: direction === "rtl" ? "جميع الملاك" : "All Owners" },
+    ];
+    if (owners && owners.length > 0) {
+      owners.forEach((owner) => {
+        ownersList.push({
+          id: owner.id,
+          name: owner.full_name || owner.name || `Owner ${owner.id}`,
+        });
+      });
+    }
+    return ownersList;
+  }, [owners, direction]);
 
   // Generate data based on date range
   const generateDateBasedData = () => {
@@ -110,67 +166,88 @@ const Reports = () => {
     };
   };
 
-  // Filter-based data generation
+  // Get filtered data from API
   const getFilteredData = () => {
-    const { monthLabels, monthsDiff } = generateDateBasedData();
+    const { monthLabels } = generateDateBasedData();
 
-    // Generate dynamic data based on date range
-    const generateMonthlyData = (baseAmount, variance = 0.2) => {
-      return monthLabels.map((_, index) => {
-        const randomFactor = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
-        return Math.round(baseAmount * randomFactor * (1 + index * 0.1));
-      });
+    // If specific owner selected, use their data
+    if (selectedOwner !== "all" && ownerPayments[selectedOwner]) {
+      const ownerData = ownerPayments[selectedOwner];
+      const totalRevenue = parseFloat(ownerData.total || 0);
+      const ownerTotal = parseFloat(ownerData.owner_total || 0);
+      const ownerPercentage =
+        totalRevenue > 0 ? (ownerTotal / totalRevenue) * 100 : 0;
+      const occasionalTotal = parseFloat(ownerData.total_occasional || 0);
+      const expensesPercentage =
+        totalRevenue > 0 ? (occasionalTotal / totalRevenue) * 100 : 0;
+      const companyTotal = parseFloat(ownerData.company_total || 0);
+      const systemManagerPercentage =
+        totalRevenue > 0 ? (companyTotal / totalRevenue) * 100 : 0;
+
+      // Generate monthly data based on owner's units
+      const generateMonthlyData = (baseAmount) => {
+        return monthLabels.map(() => {
+          const randomFactor = 0.8 + Math.random() * 0.4;
+          return Math.round(baseAmount * randomFactor);
+        });
+      };
+
+      return {
+        totalRevenue,
+        ownerPercentage,
+        expensesPercentage,
+        systemManagerPercentage,
+        monthlyRevenue: generateMonthlyData(totalRevenue / monthLabels.length),
+        monthlyExpenses: generateMonthlyData(
+          occasionalTotal / monthLabels.length
+        ),
+        revenueGrowth: 0, // Calculate from API data if available
+      };
+    }
+
+    // Use company revenue data for "all owners"
+    if (companyRevenue) {
+      const totalRevenue = parseFloat(companyRevenue.total || 0);
+      const ownerTotal = parseFloat(companyRevenue.owner_total || 0);
+      const ownerPercentage =
+        totalRevenue > 0 ? (ownerTotal / totalRevenue) * 100 : 0;
+      const occasionalTotal = parseFloat(companyRevenue.total_occasional || 0);
+      const expensesPercentage =
+        totalRevenue > 0 ? (occasionalTotal / totalRevenue) * 100 : 0;
+      const companyTotal = parseFloat(companyRevenue.company_total || 0);
+      const systemManagerPercentage =
+        totalRevenue > 0 ? (companyTotal / totalRevenue) * 100 : 0;
+
+      const generateMonthlyData = (baseAmount) => {
+        return monthLabels.map(() => {
+          const randomFactor = 0.8 + Math.random() * 0.4;
+          return Math.round(baseAmount * randomFactor);
+        });
+      };
+
+      return {
+        totalRevenue,
+        ownerPercentage,
+        expensesPercentage,
+        systemManagerPercentage,
+        monthlyRevenue: generateMonthlyData(totalRevenue / monthLabels.length),
+        monthlyExpenses: generateMonthlyData(
+          occasionalTotal / monthLabels.length
+        ),
+        revenueGrowth: 0,
+      };
+    }
+
+    // Fallback to default data if API data not available
+    return {
+      totalRevenue: 0,
+      ownerPercentage: 0,
+      expensesPercentage: 0,
+      systemManagerPercentage: 0,
+      monthlyRevenue: monthLabels.map(() => 0),
+      monthlyExpenses: monthLabels.map(() => 0),
+      revenueGrowth: 0,
     };
-
-    const baseData = {
-      all: {
-        totalRevenue: 124500 * monthsDiff,
-        ownerPercentage: 65.2,
-        expensesPercentage: 36.6,
-        systemManagerPercentage: 15.8,
-        monthlyRevenue: generateMonthlyData(45000),
-        monthlyExpenses: generateMonthlyData(18000),
-        revenueGrowth: 12.5,
-      },
-      "ahmed-ali": {
-        totalRevenue: 45000 * monthsDiff,
-        ownerPercentage: 70.0,
-        expensesPercentage: 25.0,
-        systemManagerPercentage: 10.0,
-        monthlyRevenue: generateMonthlyData(15000),
-        monthlyExpenses: generateMonthlyData(8000),
-        revenueGrowth: 8.5,
-      },
-      "mona-hassan": {
-        totalRevenue: 35000 * monthsDiff,
-        ownerPercentage: 60.0,
-        expensesPercentage: 30.0,
-        systemManagerPercentage: 15.0,
-        monthlyRevenue: generateMonthlyData(12000),
-        monthlyExpenses: generateMonthlyData(6000),
-        revenueGrowth: 15.2,
-      },
-      "omar-mahmoud": {
-        totalRevenue: 25000 * monthsDiff,
-        ownerPercentage: 75.0,
-        expensesPercentage: 20.0,
-        systemManagerPercentage: 8.0,
-        monthlyRevenue: generateMonthlyData(8000),
-        monthlyExpenses: generateMonthlyData(3000),
-        revenueGrowth: 5.8,
-      },
-      "fatima-ahmed": {
-        totalRevenue: 19500 * monthsDiff,
-        ownerPercentage: 55.0,
-        expensesPercentage: 35.0,
-        systemManagerPercentage: 12.0,
-        monthlyRevenue: generateMonthlyData(6000),
-        monthlyExpenses: generateMonthlyData(4000),
-        revenueGrowth: 18.3,
-      },
-    };
-
-    return baseData[selectedOwner] || baseData.all;
   };
 
   const filteredData = getFilteredData();
@@ -350,6 +427,231 @@ const Reports = () => {
     setShowDatePicker(false);
   };
 
+  // Export to PDF
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+      const { monthLabels } = generateDateBasedData();
+      const selectedOwnerName =
+        availableOwners.find((o) => o.id === selectedOwner)?.name ||
+        "All Owners";
+
+      // Title
+      doc.setFontSize(18);
+      doc.text(
+        direction === "rtl" ? "التقرير المالي" : "Financial Report",
+        direction === "rtl" ? 190 : 14,
+        20
+      );
+
+      // Period and Owner Info
+      doc.setFontSize(12);
+      doc.text(
+        `${direction === "rtl" ? "الفترة" : "Period"}: ${new Date(
+          dateRange.startDate
+        ).toLocaleDateString()} - ${new Date(
+          dateRange.endDate
+        ).toLocaleDateString()}`,
+        direction === "rtl" ? 190 : 14,
+        30
+      );
+      doc.text(
+        `${direction === "rtl" ? "المالك" : "Owner"}: ${selectedOwnerName}`,
+        direction === "rtl" ? 190 : 14,
+        37
+      );
+
+      // Financial Summary Table
+      const summaryData = [
+        [
+          direction === "rtl" ? "إجمالي الإيرادات" : "Total Revenue",
+          formatCurrency(filteredData.totalRevenue),
+        ],
+        [
+          direction === "rtl" ? "نسبة المالك" : "Owner Percentage",
+          formatPercentage(filteredData.ownerPercentage),
+        ],
+        [
+          direction === "rtl" ? "نسبة المصروفات" : "Expenses Percentage",
+          formatPercentage(filteredData.expensesPercentage),
+        ],
+        [
+          direction === "rtl"
+            ? "نسبة مدير النظام"
+            : "System Manager Percentage",
+          formatPercentage(filteredData.systemManagerPercentage),
+        ],
+      ];
+
+      autoTable(doc, {
+        startY: 45,
+        head: [
+          [
+            direction === "rtl" ? "البند" : "Item",
+            direction === "rtl" ? "القيمة" : "Value",
+          ],
+        ],
+        body: summaryData,
+        theme: "striped",
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      // Monthly Data Table
+      const monthlyData = monthLabels.map((month, index) => [
+        month,
+        formatCurrency(filteredData.monthlyRevenue[index] || 0),
+        formatCurrency(filteredData.monthlyExpenses[index] || 0),
+      ]);
+
+      autoTable(doc, {
+        startY: 90,
+        head: [
+          [
+            direction === "rtl" ? "الشهر" : "Month",
+            direction === "rtl" ? "الإيرادات" : "Revenue",
+            direction === "rtl" ? "المصروفات" : "Expenses",
+          ],
+        ],
+        body: monthlyData,
+        theme: "striped",
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      // Footer
+      const pageCount = doc.internal.pages.length - 1;
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(10);
+        doc.text(
+          `${
+            direction === "rtl" ? "تم الإنشاء في" : "Generated on"
+          }: ${new Date().toLocaleDateString()}`,
+          direction === "rtl" ? 190 : 14,
+          doc.internal.pageSize.height - 10
+        );
+      }
+
+      // Save PDF
+      const fileName = `Financial_Report_${selectedOwnerName.replace(
+        /\s+/g,
+        "_"
+      )}_${dateRange.startDate}_${dateRange.endDate}.pdf`;
+      doc.save(fileName);
+      toast.success(
+        direction === "rtl" ? "تم تصدير PDF بنجاح" : "PDF exported successfully"
+      );
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error(
+        direction === "rtl" ? "فشل تصدير PDF" : "Failed to export PDF"
+      );
+    }
+  };
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    try {
+      const { monthLabels } = generateDateBasedData();
+      const selectedOwnerName =
+        availableOwners.find((o) => o.id === selectedOwner)?.name ||
+        "All Owners";
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+
+      // Summary Sheet
+      const summaryData = [
+        [direction === "rtl" ? "التقرير المالي" : "Financial Report"],
+        [
+          direction === "rtl" ? "الفترة" : "Period",
+          `${new Date(dateRange.startDate).toLocaleDateString()} - ${new Date(
+            dateRange.endDate
+          ).toLocaleDateString()}`,
+        ],
+        [direction === "rtl" ? "المالك" : "Owner", selectedOwnerName],
+        [],
+        [
+          direction === "rtl" ? "البند" : "Item",
+          direction === "rtl" ? "القيمة" : "Value",
+        ],
+        [
+          direction === "rtl" ? "إجمالي الإيرادات" : "Total Revenue",
+          filteredData.totalRevenue,
+        ],
+        [
+          direction === "rtl" ? "نسبة المالك" : "Owner Percentage",
+          `${filteredData.ownerPercentage.toFixed(2)}%`,
+        ],
+        [
+          direction === "rtl" ? "نسبة المصروفات" : "Expenses Percentage",
+          `${filteredData.expensesPercentage.toFixed(2)}%`,
+        ],
+        [
+          direction === "rtl"
+            ? "نسبة مدير النظام"
+            : "System Manager Percentage",
+          `${filteredData.systemManagerPercentage.toFixed(2)}%`,
+        ],
+      ];
+
+      const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(
+        wb,
+        summaryWs,
+        direction === "rtl" ? "الملخص" : "Summary"
+      );
+
+      // Monthly Data Sheet
+      const monthlyData = [
+        [
+          direction === "rtl" ? "الشهر" : "Month",
+          direction === "rtl" ? "الإيرادات" : "Revenue",
+          direction === "rtl" ? "المصروفات" : "Expenses",
+          direction === "rtl" ? "صافي الربح" : "Net Profit",
+        ],
+      ];
+
+      monthLabels.forEach((month, index) => {
+        const revenue = filteredData.monthlyRevenue[index] || 0;
+        const expenses = filteredData.monthlyExpenses[index] || 0;
+        monthlyData.push([month, revenue, expenses, revenue - expenses]);
+      });
+
+      const monthlyWs = XLSX.utils.aoa_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(
+        wb,
+        monthlyWs,
+        direction === "rtl" ? "بيانات شهرية" : "Monthly Data"
+      );
+
+      // Save Excel file
+      const fileName = `Financial_Report_${selectedOwnerName.replace(
+        /\s+/g,
+        "_"
+      )}_${dateRange.startDate}_${dateRange.endDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      toast.success(
+        direction === "rtl"
+          ? "تم تصدير Excel بنجاح"
+          : "Excel exported successfully"
+      );
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      toast.error(
+        direction === "rtl" ? "فشل تصدير Excel" : "Failed to export Excel"
+      );
+    }
+  };
+
+  // Export all reports
+  const handleExportAll = () => {
+    // Export both PDF and Excel
+    handleExportPDF();
+    setTimeout(() => {
+      handleExportExcel();
+    }, 500);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="p-4 md:p-6 space-y-6">
@@ -394,12 +696,25 @@ const Reports = () => {
               </Button>
               <Button
                 size="sm"
-                onClick={() => console.log("Export all reports")}
+                variant="outline"
+                onClick={handleExportPDF}
+                className="mr-2"
               >
-                <Download
+                <FileText
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
-                {t("reports.exportAll")}
+                {direction === "rtl" ? "تصدير PDF" : "Export PDF"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportExcel}
+                className="mr-2"
+              >
+                <FileSpreadsheet
+                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                />
+                {direction === "rtl" ? "تصدير Excel" : "Export Excel"}
               </Button>
             </div>
           </div>
@@ -627,15 +942,38 @@ const Reports = () => {
                   className="px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   {availableOwners.map((owner) => (
-                    <option key={owner.id} value={owner.id}>
+                    <option key={owner.id} value={String(owner.id)}>
                       {owner.name}
                     </option>
                   ))}
                 </select>
                 <Button
                   size="sm"
-                  onClick={() => console.log("Export all reports")}
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  className="mr-2"
                 >
+                  <FileText
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
+                  {direction === "rtl" ? "PDF" : "PDF"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  className="mr-2"
+                >
+                  <FileSpreadsheet
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
+                  {direction === "rtl" ? "Excel" : "Excel"}
+                </Button>
+                <Button size="sm" onClick={handleExportAll}>
                   <Download
                     className={`h-4 w-4 ${
                       direction === "rtl" ? "ml-2" : "mr-2"
@@ -664,9 +1002,17 @@ const Reports = () => {
                   size="sm"
                   variant="outline"
                   title={direction === "rtl" ? "تحميل PDF" : "Download PDF"}
-                  onClick={() => console.log("Download PDF")}
+                  onClick={handleExportPDF}
                 >
-                  <Download className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title={direction === "rtl" ? "تحميل Excel" : "Download Excel"}
+                  onClick={handleExportExcel}
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -727,13 +1073,25 @@ const Reports = () => {
                         size="sm"
                         variant="outline"
                         title={t("reports.downloadPDF")}
+                        onClick={handleExportPDF}
                       >
-                        <Download className="h-4 w-4" />
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title={
+                          direction === "rtl" ? "تحميل Excel" : "Download Excel"
+                        }
+                        onClick={handleExportExcel}
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         title={t("reports.printReport")}
+                        onClick={() => window.print()}
                       >
                         <Printer className="h-4 w-4" />
                       </Button>

@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../../stores/languageStore";
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchTenants } from "../../../store/slices/tenantsSlice";
 import {
   Search,
   Plus,
@@ -31,143 +33,47 @@ const TenantList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
 
-  const tenants = [
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john.smith@email.com",
-      phone: "+1 234 567 8900",
-      unit: "A-101",
-      leaseStart: "2024-01-01",
-      leaseEnd: "2024-12-31",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1200,
-      deposit: 2400,
-      avatar:
-        "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@email.com",
-      phone: "+1 234 567 8901",
-      unit: "B-201",
-      leaseStart: "2024-02-15",
-      leaseEnd: "2025-02-14",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1500,
-      deposit: 3000,
-      avatar:
-        "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 3,
-      name: "Mike Davis",
-      email: "mike.davis@email.com",
-      phone: "+1 234 567 8902",
-      unit: "A-103",
-      leaseStart: "2023-12-01",
-      leaseEnd: "2024-11-30",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1100,
-      deposit: 2200,
-      avatar:
-        "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 4,
-      name: "Emily Brown",
-      email: "emily.brown@email.com",
-      phone: "+1 234 567 8903",
-      unit: "C-301",
-      leaseStart: "2024-03-01",
-      leaseEnd: "2025-02-28",
-      status: "inactive",
-      rentalType: "monthly",
-      rent: 1800,
-      deposit: 3600,
-      avatar:
-        "https://images.pexels.com/photos/712513/pexels-photo-712513.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 5,
-      name: "David Wilson",
-      email: "david.wilson@email.com",
-      phone: "+1 234 567 8904",
-      unit: "B-102",
-      leaseStart: "2024-04-01",
-      leaseEnd: "2025-03-31",
-      status: "active",
-      rentalType: "monthly",
-      rent: 1350,
-      deposit: 2700,
-      avatar:
-        "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 6,
-      name: "Lisa Garcia",
-      email: "lisa.garcia@email.com",
-      phone: "+1 234 567 8905",
-      unit: "C-202",
-      leaseStart: "2024-05-15",
-      leaseEnd: "2025-05-14",
-      status: "pending",
-      rentalType: "monthly",
-      rent: 1600,
-      deposit: 3200,
-      avatar:
-        "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 7,
-      name: "Ahmed Hassan",
-      email: "ahmed.hassan@email.com",
-      phone: "+1 234 567 8906",
-      unit: "D-401",
-      leaseStart: "2024-01-15",
-      leaseEnd: "2024-01-20",
-      status: "active",
-      rentalType: "daily",
-      rent: 80,
-      deposit: 200,
-      avatar:
-        "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 8,
-      name: "Mona Ali",
-      email: "mona.ali@email.com",
-      phone: "+1 234 567 8907",
-      unit: "D-402",
-      leaseStart: "2024-02-01",
-      leaseEnd: "2024-02-05",
-      status: "active",
-      rentalType: "daily",
-      rent: 75,
-      deposit: 150,
-      avatar:
-        "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-    {
-      id: 9,
-      name: "Omar Khalil",
-      email: "omar.khalil@email.com",
-      phone: "+1 234 567 8908",
-      unit: "D-403",
-      leaseStart: "2024-03-10",
-      leaseEnd: "2024-03-15",
-      status: "completed",
-      rentalType: "daily",
-      rent: 90,
-      deposit: 180,
-      avatar:
-        "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-    },
-  ];
+  const dispatch = useDispatch();
+  const { tenants: tenantsFromStore, isLoading } = useSelector(
+    (state) => state.tenants
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      const params = searchTerm ? { search: searchTerm } : {};
+      dispatch(fetchTenants(params));
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [dispatch, searchTerm]);
+
+  const tenants = useMemo(() => {
+    const placeholderAvatar =
+      "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150";
+    return (tenantsFromStore || []).map((item) => {
+      const rentInfo = item.rent_info || {};
+      const totalAmount =
+        typeof rentInfo.total_amount === "string"
+          ? parseFloat(rentInfo.total_amount)
+          : rentInfo.total_amount || 0;
+      return {
+        id: item.id,
+        name: item.full_name || item.name || "",
+        email: item.email ?? "",
+        phone: item.phone ?? "",
+        unit: rentInfo.unit_name || "",
+        leaseStart: rentInfo.rent_start || new Date().toISOString(),
+        leaseEnd: rentInfo.rent_end || new Date().toISOString(),
+        status: rentInfo.status || item.status || "active",
+        rentalType: "daily",
+        rent: Number.isFinite(totalAmount) ? totalAmount : 0,
+        avatar: item.avatar || placeholderAvatar,
+      };
+    });
+  }, [tenantsFromStore]);
 
   const statusColors = {
     active:
@@ -192,7 +98,7 @@ const TenantList = () => {
   };
 
   const getRentalTypeColor = (rentalType) => {
-    return rentalTypeColors[rentalType] || rentalTypeColors.monthly;
+    return rentalTypeColors[rentalType] || rentalTypeColors.daily;
   };
 
   const filteredTenants = tenants.filter((tenant) => {
@@ -372,8 +278,7 @@ const TenantList = () => {
                   <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <Building className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("tenants.rentAmount")}: ${tenant.rent}/
-                      {tenant.rentalType === "daily" ? "day" : "month"}
+                      {t("tenants.rentAmount")}: ${tenant.rent}/day
                     </span>
                   </div>
                 </div>

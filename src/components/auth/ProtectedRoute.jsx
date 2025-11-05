@@ -1,9 +1,9 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useAppSelector } from '../../store/hooks';
 
 const ProtectedRoute = ({ children, roles = [] }) => {
-  const { user } = useAuthStore();
+  const { user } = useAppSelector((state) => state.auth);
 
   if (!user) {
     return <Navigate to="/login" replace />;

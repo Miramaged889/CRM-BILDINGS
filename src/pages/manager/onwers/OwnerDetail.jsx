@@ -3,6 +3,13 @@ import { motion } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLanguageStore } from "../../../stores/languageStore";
 import { useTranslation } from "react-i18next";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import {
+  fetchOwnerById,
+  updateOwner,
+  deleteOwner,
+} from "../../../store/slices/ownersSlice";
+import { fetchUnitById } from "../../../store/slices/unitsSlice";
 import {
   ArrowLeft,
   User,
@@ -30,183 +37,70 @@ import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import { OwnerForm } from "../../../components/manger form";
+import toast from "react-hot-toast";
 
 const OwnerDetail = () => {
   const { direction } = useLanguageStore();
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { currentOwner, isLoading, error } = useAppSelector(
+    (state) => state.owners
+  );
 
-  const [owner, setOwner] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [contractSearchTerm, setContractSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  // Mock data - in real app, this would come from API
-  const mockOwners = [
-    {
-      id: 1,
-      name: "Ahmed Ali",
-      email: "ahmed@example.com",
-      phone: "+201234567890",
-      address: "123 Main Street, Cairo, Egypt",
-      dateJoined: "2020-01-15",
-      buildingsCount: 3,
-      units: 28,
-      rating: 4.6,
-      totalRevenue: 125000,
-      monthlyRevenue: 8500,
-      avatar:
-        "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-      buildings: [
-        {
-          id: 1,
-          name: "Sunset Tower",
-          address: "Downtown, Cairo",
-          units: 12,
-          occupiedUnits: 10,
-          monthlyRevenue: 4500,
-        },
-        {
-          id: 2,
-          name: "Palm Residency",
-          address: "New Cairo",
-          units: 8,
-          occupiedUnits: 6,
-          monthlyRevenue: 2500,
-        },
-        {
-          id: 3,
-          name: "Nile Heights",
-          address: "Zamalek, Cairo",
-          units: 8,
-          occupiedUnits: 7,
-          monthlyRevenue: 1500,
-        },
-      ],
-      contracts: [
-        {
-          id: 1,
-          contractNumber: "CON-001",
-          buildingName: "Sunset Tower",
-          unitNumber: "A-101",
-          tenantName: "John Smith",
-          startDate: "2024-01-01",
-          endDate: "2024-12-31",
-          monthlyRent: 1200,
-          status: "active",
-          contractPhoto:
-            "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=400&h=300",
-          contractPDF: "contract-001.pdf",
-        },
-        {
-          id: 2,
-          contractNumber: "CON-002",
-          buildingName: "Palm Residency",
-          unitNumber: "B-205",
-          tenantName: "Sarah Johnson",
-          startDate: "2024-02-15",
-          endDate: "2025-02-14",
-          monthlyRent: 950,
-          status: "active",
-          contractPhoto:
-            "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=400&h=300",
-          contractPDF: "contract-002.pdf",
-        },
-        {
-          id: 3,
-          contractNumber: "CON-003",
-          buildingName: "Nile Heights",
-          unitNumber: "C-301",
-          tenantName: "Mike Davis",
-          startDate: "2023-06-01",
-          endDate: "2024-05-31",
-          monthlyRent: 1100,
-          status: "expired",
-          contractPhoto:
-            "https://images.pexels.com/photos/1918291/pexels-photo-1918291.jpeg?auto=compress&cs=tinysrgb&w=400&h=300",
-          contractPDF: "contract-003.pdf",
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Mona Hassan",
-      email: "mona@example.com",
-      phone: "+201112223334",
-      address: "456 Garden City, Cairo, Egypt",
-      dateJoined: "2021-03-20",
-      buildingsCount: 1,
-      units: 12,
-      rating: 4.2,
-      totalRevenue: 45000,
-      monthlyRevenue: 3200,
-      avatar:
-        "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-      buildings: [
-        {
-          id: 4,
-          name: "Garden Plaza",
-          address: "Garden City, Cairo",
-          units: 12,
-          occupiedUnits: 10,
-          monthlyRevenue: 3200,
-        },
-      ],
-      contracts: [
-        {
-          id: 4,
-          contractNumber: "CON-004",
-          buildingName: "Garden Plaza",
-          unitNumber: "D-101",
-          tenantName: "Ahmed Hassan",
-          startDate: "2024-03-01",
-          endDate: "2025-02-28",
-          monthlyRent: 800,
-          status: "active",
-          contractPhoto:
-            "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=400&h=300",
-          contractPDF: "contract-004.pdf",
-        },
-        {
-          id: 5,
-          contractNumber: "CON-005",
-          buildingName: "Garden Plaza",
-          unitNumber: "D-205",
-          tenantName: "Fatma Ali",
-          startDate: "2023-09-15",
-          endDate: "2024-09-14",
-          monthlyRent: 750,
-          status: "expired",
-          contractPhoto:
-            "https://images.pexels.com/photos/2219024/pexels-photo-2219024.jpeg?auto=compress&cs=tinysrgb&w=400&h=300",
-          contractPDF: "contract-005.pdf",
-        },
-      ],
-    },
-  ];
+  const [unitsDetails, setUnitsDetails] = useState({});
+  const [loadingUnits, setLoadingUnits] = useState(false);
 
   useEffect(() => {
-    // Simulate API call
-    const fetchOwner = async () => {
-      setLoading(true);
-      // Simulate delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    if (id) {
+      dispatch(fetchOwnerById(id));
+    }
+  }, [dispatch, id]);
 
-      const foundOwner = mockOwners.find((o) => o.id === parseInt(id));
-      setOwner(foundOwner);
-      setLoading(false);
+  // Fetch unit details for each unit in the owner's units list
+  useEffect(() => {
+    const fetchUnitsDetails = async () => {
+      if (currentOwner?.units && currentOwner.units.length > 0) {
+        setLoadingUnits(true);
+        try {
+          const unitPromises = currentOwner.units.map(async (unit) => {
+            try {
+              const result = await dispatch(
+                fetchUnitById(unit.id || unit.unit_id)
+              ).unwrap();
+              return { id: unit.id || unit.unit_id, data: result };
+            } catch (error) {
+              console.error(`Failed to fetch unit ${unit.id}:`, error);
+              return { id: unit.id || unit.unit_id, data: unit }; // Fallback to original data
+            }
+          });
+          const results = await Promise.all(unitPromises);
+          const unitsMap = {};
+          results.forEach(({ id, data }) => {
+            unitsMap[id] = data;
+          });
+          setUnitsDetails(unitsMap);
+        } catch (error) {
+          console.error("Error fetching units details:", error);
+        } finally {
+          setLoadingUnits(false);
+        }
+      }
     };
 
-    fetchOwner();
-  }, [id]);
+    if (currentOwner?.units) {
+      fetchUnitsDetails();
+    }
+  }, [currentOwner?.units, dispatch]);
 
   const handleEdit = () => {
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (
       window.confirm(
         direction === "rtl"
@@ -214,62 +108,70 @@ const OwnerDetail = () => {
           : "Are you sure you want to delete this owner?"
       )
     ) {
-      console.log("Delete owner:", owner);
-      navigate("/owners");
-      // In real app, this would call API to delete
+      try {
+        await dispatch(deleteOwner(id)).unwrap();
+        toast.success(
+          t("owners.deleteSuccess") || "Owner deleted successfully"
+        );
+        navigate("/owners");
+      } catch (err) {
+        toast.error(err || "Failed to delete owner");
+      }
     }
   };
 
-  const handleSaveOwner = (ownerData) => {
-    console.log("Saving owner:", ownerData);
-    setOwner(ownerData);
-    setShowForm(false);
+  const handleSaveOwner = async (ownerData) => {
+    try {
+      const updateData = {
+        full_name: ownerData.name,
+        email: ownerData.email,
+        phone: ownerData.phone,
+        address: ownerData.address || "",
+        rate: ownerData.rate || parseFloat(ownerData.rating || "0"),
+      };
+      await dispatch(
+        updateOwner({ id: currentOwner.id, data: updateData })
+      ).unwrap();
+      toast.success(t("owners.updateSuccess") || "Owner updated successfully");
+      setShowForm(false);
+      // Refresh owner data
+      dispatch(fetchOwnerById(id));
+    } catch (err) {
+      toast.error(err || "Failed to update owner");
+    }
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
   };
 
-  const filteredBuildings =
-    owner?.buildings?.filter((building) =>
-      [building.name, building.address].some((v) =>
-        v.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    ) || [];
+  // Filter units based on search - use detailed unit data if available
+  const filteredUnits = React.useMemo(() => {
+    if (!currentOwner?.units) return [];
 
-  const filteredContracts =
-    owner?.contracts?.filter((contract) =>
-      [
-        contract.contractNumber,
-        contract.buildingName,
-        contract.unitNumber,
-        contract.tenantName,
-      ].some((v) => v.toLowerCase().includes(contractSearchTerm.toLowerCase()))
-    ) || [];
+    return currentOwner.units
+      .map((unit) => {
+        const unitId = unit.id || unit.unit_id;
+        const detailedUnit = unitsDetails[unitId] || unit;
+        return { ...unit, ...detailedUnit };
+      })
+      .filter((unit) => {
+        const searchFields = [
+          unit.name,
+          unit.unit_name,
+          unit.address,
+          unit.city_name,
+          unit.district_name,
+          unit.city?.name,
+          unit.district?.name,
+        ];
+        return searchFields.some((v) =>
+          v?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+  }, [currentOwner?.units, unitsDetails, searchTerm]);
 
-  const getContractStatusColor = (status) => {
-    switch (status) {
-      case "active":
-        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800";
-      case "expired":
-        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-300 dark:border-gray-800";
-    }
-  };
-
-  const getContractStatusIcon = (status) => {
-    switch (status) {
-      case "active":
-        return <CheckCircle className="h-3 w-3" />;
-      case "expired":
-        return <Clock className="h-3 w-3" />;
-      default:
-        return <Clock className="h-3 w-3" />;
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -282,7 +184,7 @@ const OwnerDetail = () => {
     );
   }
 
-  if (!owner) {
+  if (error || !currentOwner) {
     return (
       <div className="p-6 lg:p-8">
         <div className="text-center py-12">
@@ -306,6 +208,8 @@ const OwnerDetail = () => {
     );
   }
 
+  const owner = currentOwner;
+
   return (
     <div className="p-6 lg:p-8 space-y-8">
       {/* Header */}
@@ -315,9 +219,19 @@ const OwnerDetail = () => {
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700"
       >
         <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/owners")}
+            className="flex items-center"
+          >
+            <ArrowLeft
+              className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+            />
+            {direction === "rtl" ? "رجوع" : "Back"}
+          </Button>
           <div>
             <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300">
-              {owner.name}
+              {owner.full_name || owner.name}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
               {direction === "rtl" ? "معلومات المالك" : "Owner Information"}
@@ -350,26 +264,10 @@ const OwnerDetail = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {direction === "rtl" ? "إجمالي المباني" : "Total Buildings"}
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {owner.buildingsCount}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
-              <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 {direction === "rtl" ? "إجمالي الوحدات" : "Total Units"}
               </p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {owner.units}
+                {owner.units_count || owner.units || 0}
               </p>
             </div>
             <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-full">
@@ -385,7 +283,7 @@ const OwnerDetail = () => {
                 {direction === "rtl" ? "التقييم" : "Rating"}
               </p>
               <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                {owner.rating}
+                {parseFloat(owner.rate || owner.rating || 0).toFixed(1)}
               </p>
             </div>
             <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-full">
@@ -398,14 +296,36 @@ const OwnerDetail = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {direction === "rtl" ? "الإيراد الشهري" : "Monthly Revenue"}
+                {direction === "rtl" ? "إجمالي الإيرادات" : "Total Revenue"}
               </p>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                ${owner.monthlyRevenue.toLocaleString()}
+                $
+                {parseFloat(
+                  owner.total_revenue || owner.totalRevenue || 0
+                ).toLocaleString()}
               </p>
             </div>
             <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
               <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                {direction === "rtl" ? "الإيراد الشهري" : "Monthly Revenue"}
+              </p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                $
+                {parseFloat(
+                  owner.monthly_revenue || owner.monthlyRevenue || 0
+                ).toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+              <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </Card>
@@ -431,7 +351,7 @@ const OwnerDetail = () => {
                   {direction === "rtl" ? "الاسم" : "Name"}
                 </label>
                 <p className="text-gray-900 dark:text-white font-medium">
-                  {owner.name}
+                  {owner.full_name || owner.name}
                 </p>
               </div>
               <div>
@@ -455,21 +375,27 @@ const OwnerDetail = () => {
                   {direction === "rtl" ? "تاريخ الانضمام" : "Date Joined"}
                 </label>
                 <p className="text-gray-900 dark:text-white font-medium">
-                  {new Date(owner.dateJoined).toLocaleDateString()}
+                  {owner.date_joined || owner.dateJoined
+                    ? new Date(
+                        owner.date_joined || owner.dateJoined
+                      ).toLocaleDateString()
+                    : "N/A"}
                 </p>
               </div>
             </div>
-            <div className="mt-4">
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                {direction === "rtl" ? "العنوان" : "Address"}
-              </label>
-              <p className="text-gray-700 dark:text-gray-300 mt-1">
-                {owner.address}
-              </p>
-            </div>
+            {owner.address && (
+              <div className="mt-4">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  {direction === "rtl" ? "العنوان" : "Address"}
+                </label>
+                <p className="text-gray-700 dark:text-gray-300 mt-1">
+                  {owner.address}
+                </p>
+              </div>
+            )}
           </Card>
 
-          {/* Buildings List */}
+          {/* Units List */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
@@ -478,7 +404,8 @@ const OwnerDetail = () => {
                     direction === "rtl" ? "ml-2" : "mr-2"
                   } text-green-600`}
                 />
-                {direction === "rtl" ? "قائمة المباني" : "Buildings List"}
+                {direction === "rtl" ? "قائمة الوحدات" : "Units List"} (
+                {filteredUnits.length})
               </h3>
               <div className="relative max-w-sm">
                 <Search
@@ -491,8 +418,8 @@ const OwnerDetail = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder={
                     direction === "rtl"
-                      ? "بحث في المباني..."
-                      : "Search buildings..."
+                      ? "بحث في الوحدات..."
+                      : "Search units..."
                   }
                   className={`${
                     direction === "rtl" ? "pr-10 pl-4" : "pl-10 pr-4"
@@ -501,211 +428,125 @@ const OwnerDetail = () => {
               </div>
             </div>
             <div className="space-y-3">
-              {filteredBuildings.map((building) => (
-                <div
-                  key={building.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        {building.name}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {building.address}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {direction === "rtl" ? "الوحدات" : "Units"}
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {building.occupiedUnits}/{building.units}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {direction === "rtl"
-                        ? "الإيراد الشهري"
-                        : "Monthly Revenue"}
-                    </p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      ${building.monthlyRevenue.toLocaleString()}
-                    </p>
-                  </div>
+              {loadingUnits && (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    {direction === "rtl"
+                      ? "جاري تحميل الوحدات..."
+                      : "Loading units..."}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </Card>
+              )}
+              {!loadingUnits &&
+                filteredUnits.map((unit) => {
+                  const unitId = unit.id || unit.unit_id;
+                  const unitName =
+                    unit.name || unit.unit_name || `Unit ${unitId}`;
+                  const unitAddress =
+                    unit.address ||
+                    (unit.city_name && unit.district_name
+                      ? `${unit.city_name}, ${unit.district_name}`
+                      : "") ||
+                    (unit.city?.name && unit.district?.name
+                      ? `${unit.city.name}, ${unit.district.name}`
+                      : "") ||
+                    "";
+                  const unitPhoto =
+                    unit.cover_photo || unit.cover_image || unit.image;
+                  const unitStatus =
+                    unit.status || unit.unit_status || "available";
+                  const unitRentPrice =
+                    unit.rent_price || unit.price || unit.rent;
+                  const unitLocationUrl =
+                    unit.location_url || unit.location || unit.map_url;
 
-          {/* Contracts List */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                <FileText
-                  className={`h-5 w-5 ${
-                    direction === "rtl" ? "ml-2" : "mr-2"
-                  } text-blue-600`}
-                />
-                {direction === "rtl" ? "قائمة العقود" : "Contracts List"}
-              </h3>
-              <div className="relative max-w-sm">
-                <Search
-                  className={`absolute ${
-                    direction === "rtl" ? "right-3" : "left-3"
-                  } top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4`}
-                />
-                <Input
-                  value={contractSearchTerm}
-                  onChange={(e) => setContractSearchTerm(e.target.value)}
-                  placeholder={
-                    direction === "rtl"
-                      ? "بحث في العقود..."
-                      : "Search contracts..."
-                  }
-                  className={`${
-                    direction === "rtl" ? "pr-10 pl-4" : "pl-10 pr-4"
-                  }`}
-                />
-              </div>
-            </div>
-            <div className="space-y-4">
-              {filteredContracts.map((contract) => (
-                <div
-                  key={contract.id}
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Contract Photo */}
-                    <div className="lg:col-span-1">
-                      <img
-                        src={contract.contractPhoto}
-                        alt={`Contract ${contract.contractNumber}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                    </div>
-
-                    {/* Contract Details */}
-                    <div className="lg:col-span-2 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-gray-900 dark:text-white">
-                            {contract.contractNumber}
-                          </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {contract.buildingName} - {contract.unitNumber}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium border flex items-center ${getContractStatusColor(
-                            contract.status
-                          )}`}
-                        >
-                          {getContractStatusIcon(contract.status)}
-                          <span
-                            className={`${
-                              direction === "rtl" ? "mr-1" : "ml-1"
+                  return (
+                    <div
+                      key={unitId}
+                      className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/units/${unitId}`)}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                          {unitPhoto ? (
+                            <img
+                              src={unitPhoto}
+                              alt={unitName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                const placeholder = e.target.nextElementSibling;
+                                if (placeholder)
+                                  placeholder.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-full h-full flex items-center justify-center ${
+                              unitPhoto ? "hidden" : ""
                             }`}
                           >
-                            {direction === "rtl"
-                              ? contract.status === "active"
-                                ? "نشط"
-                                : "منتهي"
-                              : contract.status}
-                          </span>
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {direction === "rtl" ? "المستأجر" : "Tenant"}:
-                          </span>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {contract.tenantName}
-                          </p>
+                            <Building2 className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {direction === "rtl"
-                              ? "الإيجار الشهري"
-                              : "Monthly Rent"}
-                            :
-                          </span>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            ${contract.monthlyRent.toLocaleString()}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {direction === "rtl"
-                              ? "تاريخ البداية"
-                              : "Start Date"}
-                            :
-                          </span>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {new Date(contract.startDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {direction === "rtl" ? "تاريخ النهاية" : "End Date"}
-                            :
-                          </span>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {new Date(contract.endDate).toLocaleDateString()}
-                          </p>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {unitName}
+                          </h4>
+                          {unitAddress && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {unitAddress}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-4 mt-1">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                unitStatus === "available"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                              }`}
+                            >
+                              {unitStatus === "available"
+                                ? direction === "rtl"
+                                  ? "متاح"
+                                  : "Available"
+                                : direction === "rtl"
+                                ? "مؤجر"
+                                : "Rented"}
+                            </span>
+                            {unitRentPrice && (
+                              <span className="text-sm text-gray-600 dark:text-gray-400">
+                                ${parseFloat(unitRentPrice).toLocaleString()}
+                                {direction === "rtl" ? "/شهر" : "/month"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-
-                      {/* Contract Actions */}
-                      <div className="flex gap-2 pt-2">
+                      {unitLocationUrl && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex items-center"
-                          onClick={() => {
-                            // In real app, this would open the PDF
-                            console.log("View PDF:", contract.contractPDF);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(unitLocationUrl, "_blank");
                           }}
                         >
-                          <Eye
-                            className={`h-4 w-4 ${
-                              direction === "rtl" ? "ml-1" : "mr-1"
-                            }`}
-                          />
-                          {direction === "rtl" ? "عرض" : "View"}
+                          <MapPin className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center"
-                          onClick={() => {
-                            // In real app, this would download the PDF
-                            console.log("Download PDF:", contract.contractPDF);
-                          }}
-                        >
-                          <Download
-                            className={`h-4 w-4 ${
-                              direction === "rtl" ? "ml-1" : "mr-1"
-                            }`}
-                          />
-                          {direction === "rtl" ? "تحميل" : "Download"}
-                        </Button>
-                      </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
 
-              {filteredContracts.length === 0 && (
+              {filteredUnits.length === 0 && (
                 <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <Home className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">
                     {direction === "rtl"
-                      ? "لا توجد عقود مطابقة للبحث"
-                      : "No contracts match your search"}
+                      ? "لا توجد وحدات مطابقة للبحث"
+                      : "No units match your search"}
                   </p>
                 </div>
               )}
@@ -715,20 +556,20 @@ const OwnerDetail = () => {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Owner Avatar */}
+          {/* Owner Summary */}
           <Card className="p-6">
             <div className="text-center">
-              <img
-                src={owner.avatar}
-                alt={owner.name}
-                className="w-24 h-24 rounded-full object-cover mx-auto mb-4"
-              />
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">
+                {(owner.full_name || owner.name || "").charAt(0).toUpperCase()}
+              </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {owner.name}
+                {owner.full_name || owner.name}
               </h3>
               <div className="flex items-center justify-center text-amber-500 mt-2">
-                <Star className="h-4 w-4" />
-                <span className="ml-1">{owner.rating}</span>
+                <Star className="h-4 w-4 fill-current" />
+                <span className="ml-1">
+                  {parseFloat(owner.rate || owner.rating || 0).toFixed(1)}
+                </span>
               </div>
             </div>
           </Card>
@@ -749,7 +590,10 @@ const OwnerDetail = () => {
                   {direction === "rtl" ? "الإيراد الشهري" : "Monthly Revenue"}
                 </span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  ${owner.monthlyRevenue.toLocaleString()}
+                  $
+                  {parseFloat(
+                    owner.monthly_revenue || owner.monthlyRevenue || 0
+                  ).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -757,7 +601,10 @@ const OwnerDetail = () => {
                   {direction === "rtl" ? "إجمالي الإيرادات" : "Total Revenue"}
                 </span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  ${owner.totalRevenue.toLocaleString()}
+                  $
+                  {parseFloat(
+                    owner.total_revenue || owner.totalRevenue || 0
+                  ).toLocaleString()}
                 </span>
               </div>
             </div>

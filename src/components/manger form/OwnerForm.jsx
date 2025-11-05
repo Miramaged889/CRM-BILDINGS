@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useTranslation } from "react-i18next";
+import { isoToDateInput } from "../../utils/dateUtils";
 import {
   User,
   Mail,
@@ -25,17 +26,39 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
   const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
-    name: owner?.name || "",
+    name: owner?.full_name || owner?.name || "",
     email: owner?.email || "",
     phone: owner?.phone || "",
     address: owner?.address || "",
-    dateJoined: owner?.dateJoined || new Date().toISOString().split("T")[0],
+    dateJoined: owner?.date_joined || owner?.dateJoined 
+      ? isoToDateInput(owner.date_joined || owner.dateJoined)
+      : new Date().toISOString().split("T")[0],
     avatar: owner?.avatar || "",
     notes: owner?.notes || "",
+    rate: owner?.rate || owner?.rating || "",
   });
 
   const [errors, setErrors] = useState({});
   const [avatarPreview, setAvatarPreview] = useState(owner?.avatar || "");
+
+  // Update form data when owner prop changes
+  React.useEffect(() => {
+    if (owner) {
+      setFormData({
+        name: owner.full_name || owner.name || "",
+        email: owner.email || "",
+        phone: owner.phone || "",
+        address: owner.address || "",
+        dateJoined: owner.date_joined || owner.dateJoined
+          ? isoToDateInput(owner.date_joined || owner.dateJoined)
+          : new Date().toISOString().split("T")[0],
+        avatar: owner.avatar || "",
+        notes: owner.notes || "",
+        rate: owner.rate || owner.rating || "",
+      });
+      setAvatarPreview(owner.avatar || "");
+    }
+  }, [owner]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -106,6 +129,10 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
       const ownerData = {
         ...formData,
         id: owner?.id || Date.now(),
+        // Map to API format
+        full_name: formData.name,
+        rate: parseFloat(formData.rate || '0'),
+        rating: parseFloat(formData.rate || '0'), // For backward compatibility
       };
 
       onSave(ownerData);
@@ -440,6 +467,28 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
                       handleInputChange("dateJoined", e.target.value)
                     }
                     className="h-12 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-xl focus:border-green-500 focus:ring-0 transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className=" text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                    <Star
+                      className={`h-4 w-4 text-amber-500 ${
+                        direction === "rtl" ? "ml-2" : "mr-2"
+                      }`}
+                    />
+                    {direction === "rtl" ? "التقييم" : "Rating"} (0-5)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={formData.rate}
+                    onChange={(e) =>
+                      handleInputChange("rate", e.target.value)
+                    }
+                    placeholder={direction === "rtl" ? "0.0 - 5.0" : "0.0 - 5.0"}
+                    className="h-12 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-xl focus:border-amber-500 focus:ring-0 transition-all duration-200"
                   />
                 </div>
               </div>

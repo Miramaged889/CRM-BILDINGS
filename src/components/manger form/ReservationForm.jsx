@@ -19,9 +19,14 @@ import {
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
+import { createRent, deleteRent } from "../../services/api";
+import api from "../../services/api";
+import API_ENDPOINTS from "../../services/apiEndpoints";
+import toast from "react-hot-toast";
 
 const ReservationForm = ({
   reservation = null,
+  unit = null,
   onSave,
   onCancel,
   isEdit = false,
@@ -30,33 +35,59 @@ const ReservationForm = ({
   const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
-    tenantName: reservation?.tenantName || "",
-    tenantEmail: reservation?.tenantEmail || "",
-    tenantPhone: reservation?.tenantPhone || "",
-    unit: reservation?.unit || "",
-    building: reservation?.building || "",
-    startDate: reservation?.startDate || "",
-    endDate: reservation?.endDate || "",
-    purpose: reservation?.purpose || "",
-    guests: reservation?.guests || "",
-    specialRequests: reservation?.specialRequests || "",
-    totalCost: reservation?.totalCost || "",
-    deposit: reservation?.deposit || "",
-    status: reservation?.status || "pending",
+    unit: reservation?.unit ? String(reservation.unit) : (unit ? String(unit) : ""),
+    tenant: reservation?.tenant ? String(reservation.tenant) : "",
+    rent_start: reservation?.rent_start || "",
+    rent_end: reservation?.rent_end || "",
+    total_amount: reservation?.total_amount ? String(reservation.total_amount) : "",
+    payment_status: reservation?.payment_status || "paid",
+    payment_method: reservation?.payment_method || "cash",
+    payment_date: reservation?.payment_date ? (reservation.payment_date.slice ? reservation.payment_date.slice(0, 10) : reservation.payment_date) : "",
+    notes: reservation?.notes || "",
+    attachment: null,
+    // Additional fields that might be used in the form
+    totalCost: reservation?.totalCost ? String(reservation.totalCost) : "",
     rentalType: reservation?.rentalType || "monthly",
+    status: reservation?.status || "pending",
   });
 
   const [errors, setErrors] = useState({});
 
-  // Mock units data - in real app, this would come from API
-  const availableUnits = [
-    { id: "A-101", building: "Sunset Tower", rent: 1200 },
-    { id: "A-102", building: "Sunset Tower", rent: 1300 },
-    { id: "B-201", building: "Palm Residency", rent: 1500 },
-    { id: "C-301", building: "Nile Heights", rent: 1800 },
-    { id: "B-102", building: "Palm Residency", rent: 1350 },
-    { id: "C-202", building: "Nile Heights", rent: 1600 },
-  ];
+  // Units/Tenants lists for selects
+  const [availableUnits, setAvailableUnits] = useState([]);
+  const [availableTenants, setAvailableTenants] = useState([]);
+
+  React.useEffect(() => {
+    const fetchLists = async () => {
+      try {
+        const [unitsData, tenantsData] = await Promise.all([
+          api.get(API_ENDPOINTS.UNITS.LIST),
+          api.get(API_ENDPOINTS.TENANTS.LIST),
+        ]);
+
+        const units = (unitsData?.results || unitsData || []).map((u) => {
+          const labelParts = [
+            u.name || `#${u.id}`,
+            (u.city_name || u.city) && (u.district_name || u.district)
+              ? `${u.city_name || u.city} - ${u.district_name || u.district}`
+              : u.city_name || u.city || u.district_name || u.district,
+          ].filter(Boolean);
+          return { id: u.id, label: labelParts.join(" - ") };
+        });
+        setAvailableUnits(units);
+
+        const tenants = (tenantsData?.results || tenantsData || []).map((t) => ({
+          id: t.id,
+          label: t.full_name || t.name || t.phone || `#${t.id}`,
+        }));
+        setAvailableTenants(tenants);
+      } catch (e) {
+        setAvailableUnits([]);
+        setAvailableTenants([]);
+      }
+    };
+    fetchLists();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -74,97 +105,141 @@ const ReservationForm = ({
   };
 
   const handleUnitChange = (unitId) => {
-    const selectedUnit = availableUnits.find((unit) => unit.id === unitId);
-    if (selectedUnit) {
-      setFormData((prev) => ({
-        ...prev,
-        unit: selectedUnit.id,
-        building: selectedUnit.building,
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      unit: unitId,
+    }));
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.tenantName.trim()) {
-      newErrors.tenantName =
-        direction === "rtl" ? "اسم المستأجر مطلوب" : "Tenant name is required";
-    }
-
-    if (!formData.tenantEmail.trim()) {
-      newErrors.tenantEmail =
-        direction === "rtl" ? "البريد الإلكتروني مطلوب" : "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.tenantEmail)) {
-      newErrors.tenantEmail =
-        direction === "rtl"
-          ? "البريد الإلكتروني غير صحيح"
-          : "Invalid email format";
-    }
-
-    if (!formData.tenantPhone.trim()) {
-      newErrors.tenantPhone =
-        direction === "rtl" ? "رقم الهاتف مطلوب" : "Phone number is required";
-    }
-
-    if (!formData.unit.trim()) {
+    if (!String(formData.unit).trim()) {
       newErrors.unit =
         direction === "rtl" ? "الوحدة مطلوبة" : "Unit is required";
     }
 
-    if (!formData.startDate.trim()) {
-      newErrors.startDate =
+    if (!String(formData.tenant).trim()) {
+      newErrors.tenant =
+        direction === "rtl" ? "المستأجر مطلوب" : "Tenant is required";
+    }
+
+    if (!String(formData.rent_start).trim()) {
+      newErrors.rent_start =
         direction === "rtl" ? "تاريخ البداية مطلوب" : "Start date is required";
     }
 
-    if (!formData.endDate.trim()) {
-      newErrors.endDate =
+    if (!String(formData.rent_end).trim()) {
+      newErrors.rent_end =
         direction === "rtl" ? "تاريخ النهاية مطلوب" : "End date is required";
     }
 
-    if (!formData.purpose.trim()) {
-      newErrors.purpose =
-        direction === "rtl" ? "الغرض مطلوب" : "Purpose is required";
+    if (!formData.total_amount || Number(formData.total_amount) <= 0) {
+      newErrors.total_amount =
+        direction === "rtl" ? "المبلغ الإجمالي مطلوب" : "Total amount is required";
     }
 
-    if (!formData.guests || formData.guests <= 0) {
-      newErrors.guests =
-        direction === "rtl"
-          ? "عدد الضيوف مطلوب"
-          : "Number of guests is required";
+    if (!String(formData.payment_status).trim()) {
+      newErrors.payment_status =
+        direction === "rtl" ? "حالة الدفع مطلوبة" : "Payment status is required";
     }
 
-    if (!formData.totalCost || formData.totalCost <= 0) {
-      newErrors.totalCost =
-        direction === "rtl"
-          ? "التكلفة الإجمالية مطلوبة"
-          : "Total cost is required";
+    if (!String(formData.payment_method).trim()) {
+      newErrors.payment_method =
+        direction === "rtl" ? "طريقة الدفع مطلوبة" : "Payment method is required";
     }
 
-    if (!formData.deposit || formData.deposit <= 0) {
-      newErrors.deposit =
-        direction === "rtl" ? "الضمان مطلوب" : "Deposit is required";
-    }
-
-    if (!formData.rentalType) {
-      newErrors.rentalType =
-        direction === "rtl" ? "نوع الإيجار مطلوب" : "Rental type is required";
+    if (!String(formData.payment_date).trim()) {
+      newErrors.payment_date =
+        direction === "rtl" ? "تاريخ الدفع مطلوب" : "Payment date is required";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (validateForm()) {
-      const reservationData = {
-        ...formData,
-        id: reservation?.id || Date.now(),
-      };
+      const fd = new FormData();
+      fd.append("unit", String(formData.unit));
+      fd.append("tenant", String(formData.tenant));
+      fd.append("rent_start", formData.rent_start);
+      fd.append("rent_end", formData.rent_end);
+      fd.append("total_amount", String(formData.total_amount));
+      fd.append("payment_status", formData.payment_status);
+      fd.append("payment_method", formData.payment_method);
+      fd.append("payment_date", formData.payment_date);
+      if (formData.notes) fd.append("notes", formData.notes);
+      if (formData.attachment) fd.append("attachment", formData.attachment);
 
-      onSave(reservationData);
+      try {
+        const created = await createRent(fd);
+        toast.success(
+          direction === "rtl"
+            ? "تم إنشاء الإيجار بنجاح"
+            : "Rent created successfully"
+        );
+        // Dispatch event to update Calendar
+        window.dispatchEvent(new Event("rent-created"));
+        onSave?.(created);
+      } catch (err) {
+        console.error("Error creating rent:", err);
+        const apiErrors = err?.response?.data || err?.data || {};
+        const mapped = {};
+        Object.keys(apiErrors).forEach((k) => {
+          const errorValue = apiErrors[k];
+          if (Array.isArray(errorValue)) {
+            mapped[k] = errorValue.join(" ");
+          } else if (typeof errorValue === "object") {
+            mapped[k] = JSON.stringify(errorValue);
+          } else {
+            mapped[k] = String(errorValue);
+          }
+        });
+        setErrors((prev) => ({ ...prev, ...mapped }));
+        
+        // Show specific error messages
+        let errorMessage = "";
+        if (apiErrors.unit && Array.isArray(apiErrors.unit)) {
+          errorMessage = apiErrors.unit.join(" ");
+        } else if (apiErrors.message) {
+          errorMessage = Array.isArray(apiErrors.message) 
+            ? apiErrors.message.join(" ") 
+            : apiErrors.message;
+        } else if (err?.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        } else if (err?.message) {
+          errorMessage = err.message;
+        } else {
+          errorMessage = direction === "rtl" 
+            ? "فشل إنشاء الإيجار. يرجى التحقق من البيانات." 
+            : "Failed to create rent. Please check the data.";
+        }
+        
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!reservation?.id) return;
+    try {
+      await deleteRent(reservation.id);
+      toast.success(
+        direction === "rtl"
+          ? "تم حذف الإيجار بنجاح"
+          : "Rent deleted successfully"
+      );
+      // Dispatch event to update Calendar
+      window.dispatchEvent(new Event("rent-deleted"));
+      onSave?.({ deleted: true, id: reservation.id });
+    } catch (err) {
+      toast.error(
+        err?.message ||
+          (direction === "rtl" ? "فشل حذف الإيجار" : "Failed to delete rent")
+      );
     }
   };
 
@@ -187,16 +262,16 @@ const ReservationForm = ({
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {isEdit
                     ? direction === "rtl"
-                      ? "تعديل الحجز"
-                      : "Edit Reservation"
+                      ? "تعديل إيجار"
+                      : "Edit Rent"
                     : direction === "rtl"
-                    ? "إضافة حجز جديد"
-                    : "Add New Reservation"}
+                    ? "إضافة إيجار جديد"
+                    : "Add New Rent"}
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                   {direction === "rtl"
-                    ? "املأ البيانات التالية لإضافة حجز جديد"
-                    : "Fill in the following information to add a new reservation"}
+                    ? "املأ البيانات التالية لإضافة إيجار جديد"
+                    : "Fill in the following information to add a new rent"}
                 </p>
               </div>
               <button
@@ -210,7 +285,7 @@ const ReservationForm = ({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6">
-            {/* Tenant Information */}
+            {/* Rent Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                 <User
@@ -218,91 +293,62 @@ const ReservationForm = ({
                     direction === "rtl" ? "ml-2" : "mr-2"
                   }`}
                 />
-                {direction === "rtl"
-                  ? "معلومات المستأجر"
-                  : "Tenant Information"}
+                {direction === "rtl" ? "بيانات الإيجار" : "Rent Details"}
               </h3>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الاسم الكامل" : "Full Name"} *
-                  </label>
-                  <Input
-                    value={formData.tenantName}
-                    onChange={(e) =>
-                      handleInputChange("tenantName", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل الاسم الكامل"
-                        : "Enter full name"
-                    }
-                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.tenantName ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.tenantName && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.tenantName}
-                    </p>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "البريد الإلكتروني" : "Email"} *
-                  </label>
-                  <Input
-                    type="email"
-                    value={formData.tenantEmail}
-                    onChange={(e) =>
-                      handleInputChange("tenantEmail", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل البريد الإلكتروني"
-                        : "Enter email address"
-                    }
-                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.tenantEmail ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.tenantEmail && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.tenantEmail}
-                    </p>
-                  )}
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "رقم الهاتف" : "Phone Number"} *
-                  </label>
-                  <Input
-                    value={formData.tenantPhone}
-                    onChange={(e) =>
-                      handleInputChange("tenantPhone", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل رقم الهاتف"
-                        : "Enter phone number"
-                    }
-                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.tenantPhone ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.tenantPhone && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.tenantPhone}
-                    </p>
-                  )}
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Unit */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "الوحدة" : "Unit"} *
+                </label>
+                <select
+                  value={formData.unit}
+                  onChange={(e) => handleUnitChange(e.target.value)}
+                  className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                    errors.unit ? "border-red-500" : ""
+                  }`}
+                >
+                  <option value="">
+                    {direction === "rtl" ? "اختر الوحدة" : "Select Unit"}
+                  </option>
+                  {availableUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.unit && (
+                  <p className="text-red-500 text-sm mt-1">{errors.unit}</p>
+                )}
               </div>
+
+              {/* Tenant */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {direction === "rtl" ? "المستأجر" : "Tenant"} *
+                </label>
+                <select
+                  value={formData.tenant}
+                  onChange={(e) => handleInputChange("tenant", e.target.value)}
+                  className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                    errors.tenant ? "border-red-500" : ""
+                  }`}
+                >
+                  <option value="">
+                    {direction === "rtl" ? "اختر المستأجر" : "Select Tenant"}
+                  </option>
+                  {availableTenants.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.tenant && (
+                  <p className="text-red-500 text-sm mt-1">{errors.tenant}</p>
+                )}
+              </div>
+            </div>
             </div>
 
             {/* Reservation Details */}
@@ -317,169 +363,137 @@ const ReservationForm = ({
               </h3>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Unit Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الوحدة" : "Unit"} *
-                  </label>
-                  <select
-                    value={formData.unit}
-                    onChange={(e) => handleUnitChange(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                      errors.unit ? "border-red-500" : ""
-                    }`}
-                  >
-                    <option value="">
-                      {direction === "rtl" ? "اختر الوحدة" : "Select Unit"}
-                    </option>
-                    {availableUnits.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.id} - {unit.building}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.unit && (
-                    <p className="text-red-500 text-sm mt-1">{errors.unit}</p>
-                  )}
-                </div>
-
-                {/* Building */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "المبنى" : "Building"}
-                  </label>
-                  <Input
-                    value={formData.building}
-                    readOnly
-                    className="bg-gray-50 dark:bg-gray-600 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {direction === "rtl"
-                      ? "يتم ملؤها تلقائياً عند اختيار الوحدة"
-                      : "Auto-filled when unit is selected"}
-                  </p>
-                </div>
-
                 {/* Start Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "تاريخ البداية" : "Start Date"} *
+                    {direction === "rtl" ? "بداية الإيجار" : "Rent Start"} *
                   </label>
                   <Input
                     type="date"
-                    value={formData.startDate}
+                    value={formData.rent_start || ""}
                     onChange={(e) =>
-                      handleInputChange("startDate", e.target.value)
+                      handleInputChange("rent_start", e.target.value || "")
                     }
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.startDate ? "border-red-500" : ""
+                      errors.rent_start ? "border-red-500" : ""
                     }`}
                   />
-                  {errors.startDate && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.startDate}
-                    </p>
+                  {errors.rent_start && (
+                    <p className="text-red-500 text-sm mt-1">{errors.rent_start}</p>
                   )}
                 </div>
 
                 {/* End Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "تاريخ النهاية" : "End Date"} *
+                    {direction === "rtl" ? "نهاية الإيجار" : "Rent End"} *
                   </label>
                   <Input
                     type="date"
-                    value={formData.endDate}
+                    value={formData.rent_end || ""}
                     onChange={(e) =>
-                      handleInputChange("endDate", e.target.value)
+                      handleInputChange("rent_end", e.target.value || "")
                     }
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.endDate ? "border-red-500" : ""
+                      errors.rent_end ? "border-red-500" : ""
                     }`}
                   />
-                  {errors.endDate && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.endDate}
-                    </p>
+                  {errors.rent_end && (
+                    <p className="text-red-500 text-sm mt-1">{errors.rent_end}</p>
                   )}
                 </div>
 
-                {/* Purpose */}
+                {/* Total Amount */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الغرض" : "Purpose"} *
-                  </label>
-                  <Input
-                    value={formData.purpose}
-                    onChange={(e) =>
-                      handleInputChange("purpose", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl" ? "أدخل الغرض" : "Enter purpose"
-                    }
-                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.purpose ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.purpose && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.purpose}
-                    </p>
-                  )}
-                </div>
-
-                {/* Number of Guests */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "عدد الضيوف" : "Number of Guests"} *
+                    {direction === "rtl" ? "المبلغ الإجمالي" : "Total Amount"} *
                   </label>
                   <Input
                     type="number"
-                    value={formData.guests}
-                    onChange={(e) =>
-                      handleInputChange("guests", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل عدد الضيوف"
-                        : "Enter number of guests"
-                    }
-                    min="1"
+                    value={formData.total_amount || ""}
+                    onChange={(e) => handleInputChange("total_amount", e.target.value || "")}
+                    min="0"
+                    step="0.01"
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.guests ? "border-red-500" : ""
+                      errors.total_amount ? "border-red-500" : ""
                     }`}
                   />
-                  {errors.guests && (
-                    <p className="text-red-500 text-sm mt-1">{errors.guests}</p>
+                  {errors.total_amount && (
+                    <p className="text-red-500 text-sm mt-1">{errors.total_amount}</p>
                   )}
                 </div>
 
-                {/* Rental Type */}
+                {/* Payment Status */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "نوع الإيجار" : "Rental Type"} *
+                    {direction === "rtl" ? "حالة الدفع" : "Payment Status"} *
                   </label>
                   <select
-                    value={formData.rentalType}
-                    onChange={(e) =>
-                      handleInputChange("rentalType", e.target.value)
-                    }
+                    value={formData.payment_status}
+                    onChange={(e) => handleInputChange("payment_status", e.target.value)}
                     className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                      errors.rentalType ? "border-red-500" : ""
+                      errors.payment_status ? "border-red-500" : ""
                     }`}
                   >
-                    <option value="monthly">
-                      {direction === "rtl" ? "شهري" : "Monthly"}
-                    </option>
-                    <option value="daily">
-                      {direction === "rtl" ? "يومي" : "Daily"}
-                    </option>
+                    <option value="paid">{direction === "rtl" ? "مدفوع" : "Paid"}</option>
+                    <option value="pending">{direction === "rtl" ? "قيد الانتظار" : "Pending"}</option>
+                    <option value="overdue">{direction === "rtl" ? "متأخر" : "Overdue"}</option>
                   </select>
-                  {errors.rentalType && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.rentalType}
-                    </p>
+                  {errors.payment_status && (
+                    <p className="text-red-500 text-sm mt-1">{errors.payment_status}</p>
                   )}
+                </div>
+
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl" ? "طريقة الدفع" : "Payment Method"} *
+                  </label>
+                  <select
+                    value={formData.payment_method}
+                    onChange={(e) => handleInputChange("payment_method", e.target.value)}
+                    className={`w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                      errors.payment_method ? "border-red-500" : ""
+                    }`}
+                  >
+                    <option value="cash">{direction === "rtl" ? "نقدًا" : "Cash"}</option>
+                    <option value="bank_transfer">{direction === "rtl" ? "تحويل بنكي" : "Bank Transfer"}</option>
+                    <option value="credit_card">{direction === "rtl" ? "بطاقة ائتمان" : "Credit Card"}</option>
+                    <option value="online_payment">{direction === "rtl" ? "دفع إلكتروني" : "Online Payment"}</option>
+                  </select>
+                  {errors.payment_method && (
+                    <p className="text-red-500 text-sm mt-1">{errors.payment_method}</p>
+                  )}
+                </div>
+
+                {/* Payment Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl" ? "تاريخ الدفع" : "Payment Date"} *
+                  </label>
+                  <Input
+                    type="date"
+                    value={formData.payment_date || ""}
+                    onChange={(e) => handleInputChange("payment_date", e.target.value || "")}
+                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
+                      errors.payment_date ? "border-red-500" : ""
+                    }`}
+                  />
+                  {errors.payment_date && (
+                    <p className="text-red-500 text-sm mt-1">{errors.payment_date}</p>
+                  )}
+                </div>
+
+                {/* Attachment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {direction === "rtl" ? "مرفق (اختياري)" : "Attachment (optional)"}
+                  </label>
+                  <input
+                    type="file"
+                    onChange={(e) => handleInputChange("attachment", e.target.files?.[0] || null)}
+                    className="w-full text-sm text-gray-700 dark:text-gray-300"
+                  />
                 </div>
               </div>
             </div>
@@ -514,9 +528,9 @@ const ReservationForm = ({
                   </label>
                   <Input
                     type="number"
-                    value={formData.totalCost}
+                    value={formData.totalCost || ""}
                     onChange={(e) =>
-                      handleInputChange("totalCost", e.target.value)
+                      handleInputChange("totalCost", e.target.value || "")
                     }
                     placeholder={
                       direction === "rtl"
@@ -544,34 +558,6 @@ const ReservationForm = ({
                   )}
                 </div>
 
-                {/* Deposit */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الضمان" : "Deposit"} *
-                  </label>
-                  <Input
-                    type="number"
-                    value={formData.deposit}
-                    onChange={(e) =>
-                      handleInputChange("deposit", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل مبلغ الضمان"
-                        : "Enter deposit amount"
-                    }
-                    min="0"
-                    step="0.01"
-                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.deposit ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.deposit && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.deposit}
-                    </p>
-                  )}
-                </div>
 
                 {/* Status */}
                 <div>
@@ -602,7 +588,7 @@ const ReservationForm = ({
               </div>
             </div>
 
-            {/* Special Requests */}
+            {/* Notes */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                 <MessageSquare
@@ -610,22 +596,20 @@ const ReservationForm = ({
                     direction === "rtl" ? "ml-2" : "mr-2"
                   }`}
                 />
-                {direction === "rtl" ? "الطلبات الخاصة" : "Special Requests"}
+                {direction === "rtl" ? "ملاحظات" : "Notes"}
               </h3>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {direction === "rtl" ? "الطلبات الخاصة" : "Special Requests"}
+                  {direction === "rtl" ? "ملاحظات" : "Notes"}
                 </label>
                 <textarea
-                  value={formData.specialRequests}
-                  onChange={(e) =>
-                    handleInputChange("specialRequests", e.target.value)
-                  }
+                  value={formData.notes || ""}
+                  onChange={(e) => handleInputChange("notes", e.target.value || "")}
                   placeholder={
                     direction === "rtl"
-                      ? "أدخل أي طلبات خاصة..."
-                      : "Enter any special requests..."
+                      ? "أدخل أي ملاحظات..."
+                      : "Enter any notes..."
                   }
                   rows={4}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
@@ -646,6 +630,19 @@ const ReservationForm = ({
                 />
                 {direction === "rtl" ? "إلغاء" : "Cancel"}
               </Button>
+              {isEdit && reservation?.id ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDelete}
+                  className="w-full sm:w-auto px-6 py-2"
+                >
+                  <X
+                    className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+                  />
+                  {direction === "rtl" ? "حذف الإيجار" : "Delete Rent"}
+                </Button>
+              ) : null}
               <Button type="submit" className="w-full sm:w-auto px-6 py-2">
                 <Save
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
@@ -655,8 +652,8 @@ const ReservationForm = ({
                     ? "حفظ التغييرات"
                     : "Save Changes"
                   : direction === "rtl"
-                  ? "إضافة الحجز"
-                  : "Add Reservation"}
+                  ? "إضافة إيجار"
+                  : "Add Rent"}
               </Button>
             </div>
           </form>

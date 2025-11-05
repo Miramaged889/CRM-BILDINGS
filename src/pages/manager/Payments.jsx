@@ -1,7 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../stores/languageStore";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { fetchUnits, fetchUnitPayments } from "../../store/slices/unitsSlice";
+import {
+  fetchCompanyRevenue,
+  createOccasionalPayment,
+  updateOccasionalPayment,
+  deleteOccasionalPayment,
+  clearError,
+} from "../../store/slices/paymentsSlice";
 import {
   Plus,
   Search,
@@ -17,115 +26,211 @@ import {
   Edit,
   Download,
   Printer,
+  Trash2,
+  Building,
 } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Icon from "../../components/ui/Icon";
-import { PaymentForm, PaymentViewModal } from "../../components/manger form";
+import {
+  PaymentForm,
+  PaymentViewModal,
+  OwnerPaymentForm,
+  OwnerPaymentsModal,
+} from "../../components/manger form";
+import { fetchOwners } from "../../store/slices/ownersSlice";
+import { fetchTenants } from "../../store/slices/tenantsSlice";
+import { payOwner, fetchOwnerPayments } from "../../store/slices/paymentsSlice";
+import { getRents } from "../../services/api";
+import toast from "react-hot-toast";
 
 const Payments = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const { units, isLoading: unitsLoading } = useAppSelector(
+    (state) => state.units
+  );
+  const {
+    unitPayments,
+    companyRevenue,
+    ownerPayments,
+    isLoading: paymentsLoading,
+    error,
+  } = useAppSelector((state) => state.payments);
+
+  // Owners and Tenants state
+  const { owners } = useAppSelector((state) => state.owners);
+  const { tenants } = useAppSelector((state) => state.tenants);
+
+  const [activeTab, setActiveTab] = useState("unit-payments"); // "unit-payments" or "owner-payments"
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
-  const [paymentsData, setPaymentsData] = useState([
-    {
-      id: 1,
-      tenant: "John Smith",
-      unit: "A-101",
-      amount: 1200,
-      date: "2024-01-15",
-      method: "Bank Transfer",
-      status: "paid",
-      dueDate: "2024-01-01",
-    },
-    {
-      id: 2,
-      tenant: "Sarah Johnson",
-      unit: "B-205",
-      amount: 1500,
-      date: "2024-01-14",
-      method: "Cash",
-      status: "paid",
-      dueDate: "2024-01-01",
-    },
-    {
-      id: 3,
-      tenant: "Mike Davis",
-      unit: "C-301",
-      amount: 1000,
-      date: null,
-      method: "Credit Card",
-      status: "overdue",
-      dueDate: "2024-01-01",
-    },
-    {
-      id: 4,
-      tenant: "Emily Brown",
-      unit: "D-102",
-      amount: 1300,
-      date: null,
-      method: "Bank Transfer",
-      status: "pending",
-      dueDate: "2024-02-01",
-    },
-    {
-      id: 5,
-      tenant: "Ahmed Ali",
-      unit: "E-401",
-      amount: 1100,
-      date: "2024-01-20",
-      method: "Online Payment",
-      status: "paid",
-      dueDate: "2024-01-01",
-    },
-    {
-      id: 6,
-      tenant: "Fatima Hassan",
-      unit: "F-502",
-      amount: 1400,
-      date: null,
-      method: "Check",
-      status: "overdue",
-      dueDate: "2024-01-01",
-    },
-  ]);
+  const [selectedUnitId, setSelectedUnitId] = useState(null);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "paid":
-        return "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800";
-      case "overdue":
-        return "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-700";
+  // Owner payments state
+  const [showOwnerPaymentsModal, setShowOwnerPaymentsModal] = useState(false);
+  const [showOwnerPaymentForm, setShowOwnerPaymentForm] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState(null);
+  const [ownerSearchTerm, setOwnerSearchTerm] = useState("");
+  const [rents, setRents] = useState([]);
+  const [loadingRents, setLoadingRents] = useState(false);
+
+  // Fetch units, owners, tenants and payments on mount
+  useEffect(() => {
+    dispatch(fetchUnits());
+    dispatch(fetchCompanyRevenue());
+    dispatch(fetchOwners());
+    dispatch(fetchTenants({}));
+  }, [dispatch]);
+
+  // Fetch all rents
+  useEffect(() => {
+    const fetchAllRents = async () => {
+      setLoadingRents(true);
+      try {
+        const response = await getRents({});
+        const rentsData = response?.results || response?.data || response || [];
+        setRents(Array.isArray(rentsData) ? rentsData : []);
+      } catch (error) {
+        console.error("Error fetching rents:", error);
+        setRents([]);
+      } finally {
+        setLoadingRents(false);
+      }
+    };
+
+    fetchAllRents();
+  }, []);
+
+  // Fetch payments for all units
+  useEffect(() => {
+    if (units && units.length > 0) {
+      units.forEach((unit) => {
+        if (unit.id && !unitPayments[unit.id]) {
+          dispatch(fetchUnitPayments(unit.id));
+        }
+      });
     }
+  }, [units, dispatch, unitPayments]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  // Combine all payments from all units and rents
+  const allPayments = React.useMemo(() => {
+    const payments = [];
+
+    // Add occasional payments
+    Object.keys(unitPayments).forEach((unitId) => {
+      const unitPaymentList = Array.isArray(unitPayments[unitId])
+        ? unitPayments[unitId]
+        : [];
+      unitPaymentList.forEach((payment) => {
+        const unit = units.find((u) => u.id === parseInt(unitId));
+        payments.push({
+          ...payment,
+          unit_id: parseInt(unitId),
+          unit_name: unit?.name || `Unit ${unitId}`,
+          unit: unit?.name || `Unit ${unitId}`,
+          payment_type: "occasional",
+        });
+      });
+    });
+
+    // Add rents
+    rents.forEach((rent) => {
+      const unitId = typeof rent.unit === "object" ? rent.unit?.id : rent.unit;
+      const unit = units.find((u) => u.id === parseInt(unitId));
+      payments.push({
+        id: rent.id,
+        unit_id: parseInt(unitId),
+        unit_name: unit?.name || `Unit ${unitId}`,
+        unit: unit?.name || `Unit ${unitId}`,
+        category: "rent",
+        amount: parseFloat(rent.total_amount || 0),
+        payment_method: rent.payment_method || "-",
+        payment_date: rent.payment_date || rent.rent_start,
+        payment_type: "rent",
+        rent_start: rent.rent_start,
+        rent_end: rent.rent_end,
+        payment_status: rent.payment_status,
+        tenant: rent.tenant,
+        notes: rent.notes,
+      });
+    });
+
+    return payments;
+  }, [unitPayments, units, rents]);
+
+  const translateCategory = (category) => {
+    const categoryMap = {
+      wifi: direction === "rtl" ? "واي فاي" : "WiFi",
+      electricity: direction === "rtl" ? "كهرباء" : "Electricity",
+      water: direction === "rtl" ? "مياه" : "Water",
+      cleaning: direction === "rtl" ? "تنظيف" : "Cleaning",
+      maintenance: direction === "rtl" ? "صيانة" : "Maintenance",
+      repair: direction === "rtl" ? "إصلاح" : "Repair",
+      other: direction === "rtl" ? "أخرى" : "Other",
+      rent: direction === "rtl" ? "إيجار" : "Rent",
+    };
+    return categoryMap[category] || category;
   };
 
-  const filteredPayments = paymentsData.filter((payment) => {
+  const translatePaymentType = (type) => {
+    const typeMap = {
+      rent: direction === "rtl" ? "إيجار" : "Rent",
+      occasional: direction === "rtl" ? "دفعة عرضية" : "Occasional",
+    };
+    return typeMap[type] || type;
+  };
+
+  const translateMethod = (method) => {
+    const methodMap = {
+      bank_transfer: direction === "rtl" ? "تحويل بنكي" : "Bank Transfer",
+      cash: direction === "rtl" ? "نقداً" : "Cash",
+      credit_card: direction === "rtl" ? "بطاقة ائتمان" : "Credit Card",
+      online_payment: direction === "rtl" ? "دفع إلكتروني" : "Online Payment",
+    };
+    return methodMap[method] || method;
+  };
+
+  const filteredPayments = allPayments.filter((payment) => {
     const matchesSearch =
-      payment.tenant.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.unit.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || payment.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      (payment.unit_name || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (payment.category || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (payment.notes || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || payment.category === categoryFilter;
+    return matchesSearch && matchesCategory;
   });
 
   // Handler functions
   const handleAddNew = () => {
     setEditingPayment(null);
+    setSelectedUnitId(null);
     setShowForm(true);
   };
 
   const handleEdit = (payment) => {
     setEditingPayment(payment);
+    setSelectedUnitId(payment.unit_id);
     setShowForm(true);
   };
 
@@ -134,15 +239,99 @@ const Payments = () => {
     setShowViewModal(true);
   };
 
-  const handleSavePayment = (paymentData) => {
-    console.log("Saving payment:", paymentData);
-    setShowForm(false);
-    setEditingPayment(null);
+  const handleSavePayment = async (paymentData) => {
+    try {
+      if (editingPayment) {
+        // Update existing payment
+        await dispatch(
+          updateOccasionalPayment({
+            unitId: editingPayment.unit_id,
+            paymentId: editingPayment.id,
+            paymentData,
+          })
+        ).unwrap();
+        toast.success(
+          direction === "rtl"
+            ? "تم تحديث الدفعة بنجاح"
+            : "Payment updated successfully"
+        );
+        // Refresh payments for this unit
+        dispatch(fetchUnitPayments(editingPayment.unit_id));
+      } else {
+        // Create new payment
+        const unitId = selectedUnitId || paymentData.unit_id;
+        if (!unitId) {
+          toast.error(
+            direction === "rtl" ? "الرجاء تحديد الوحدة" : "Please select a unit"
+          );
+          return;
+        }
+        await dispatch(
+          createOccasionalPayment({
+            unitId,
+            paymentData,
+          })
+        ).unwrap();
+        toast.success(
+          direction === "rtl"
+            ? "تم إضافة الدفعة بنجاح"
+            : "Payment added successfully"
+        );
+        // Refresh payments for this unit
+        dispatch(fetchUnitPayments(unitId));
+        // Refresh company revenue
+        dispatch(fetchCompanyRevenue());
+      }
+      setShowForm(false);
+      setEditingPayment(null);
+      setSelectedUnitId(null);
+    } catch (err) {
+      toast.error(
+        err ||
+          (direction === "rtl" ? "فشل حفظ الدفعة" : "Failed to save payment")
+      );
+    }
+  };
+
+  const handleDeletePayment = async (payment) => {
+    if (
+      !window.confirm(
+        direction === "rtl"
+          ? "هل أنت متأكد من حذف هذه الدفعة؟"
+          : "Are you sure you want to delete this payment?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await dispatch(
+        deleteOccasionalPayment({
+          unitId: payment.unit_id,
+          paymentId: payment.id,
+        })
+      ).unwrap();
+      toast.success(
+        direction === "rtl"
+          ? "تم حذف الدفعة بنجاح"
+          : "Payment deleted successfully"
+      );
+      // Refresh payments for this unit
+      dispatch(fetchUnitPayments(payment.unit_id));
+      // Refresh company revenue
+      dispatch(fetchCompanyRevenue());
+    } catch (err) {
+      toast.error(
+        err ||
+          (direction === "rtl" ? "فشل حذف الدفعة" : "Failed to delete payment")
+      );
+    }
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingPayment(null);
+    setSelectedUnitId(null);
   };
 
   const handleCloseViewModal = () => {
@@ -150,52 +339,119 @@ const Payments = () => {
     setSelectedPayment(null);
   };
 
-  const handleMarkAsPaid = (payment) => {
-    const updatedPayments = paymentsData.map((p) => {
-      if (p.id === payment.id) {
-        return {
-          ...p,
-          status: "paid",
-          date: new Date().toISOString().split("T")[0],
-        };
-      }
-      return p;
-    });
-
-    setPaymentsData(updatedPayments);
-
-    // Show success notification
-    const message =
-      direction === "rtl"
-        ? "تم تأكيد الدفع بنجاح"
-        : "Payment confirmed successfully";
-
-    // Create success notification
-    const notification = document.createElement("div");
-    notification.className = `fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 ${
-      direction === "rtl" ? "right-auto left-4" : ""
-    }`;
-    notification.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-        </svg>
-        ${message}
-      </div>
-    `;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-      notification.remove();
-    }, 3000);
+  // Owner payment handlers
+  const handleViewOwnerPayments = (owner) => {
+    setSelectedOwner(owner);
+    setShowOwnerPaymentsModal(true);
+    // Fetch owner payments if not already loaded
+    if (!ownerPayments[owner.id]) {
+      dispatch(fetchOwnerPayments(owner.id));
+    }
   };
 
+  const handlePayOwner = (owner) => {
+    setSelectedOwner(owner);
+    setShowOwnerPaymentForm(true);
+  };
+
+  const handleSaveOwnerPayment = async (paymentData) => {
+    try {
+      await dispatch(
+        payOwner({
+          ownerId: selectedOwner.id,
+          amountPaid: paymentData.amount_paid,
+          notes: paymentData.notes,
+        })
+      ).unwrap();
+      toast.success(
+        direction === "rtl" ? "تم دفع المالك بنجاح" : "Owner paid successfully"
+      );
+      // Refresh owner payments data
+      dispatch(fetchOwnerPayments(selectedOwner.id));
+      // Refresh company revenue
+      dispatch(fetchCompanyRevenue());
+      setShowOwnerPaymentForm(false);
+      setSelectedOwner(null);
+    } catch (err) {
+      toast.error(
+        err || (direction === "rtl" ? "فشل دفع المالك" : "Failed to pay owner")
+      );
+    }
+  };
+
+  const handleCloseOwnerPaymentsModal = () => {
+    setShowOwnerPaymentsModal(false);
+    setSelectedOwner(null);
+  };
+
+  const handleCloseOwnerPaymentForm = () => {
+    setShowOwnerPaymentForm(false);
+    setSelectedOwner(null);
+  };
+
+  // Filter owners
+  const filteredOwners =
+    owners?.filter((owner) => {
+      const name = (owner.full_name || owner.name || "").toLowerCase();
+      const email = (owner.email || "").toLowerCase();
+      const phone = (owner.phone || "").toLowerCase();
+      return (
+        name.includes(ownerSearchTerm.toLowerCase()) ||
+        email.includes(ownerSearchTerm.toLowerCase()) ||
+        phone.includes(ownerSearchTerm.toLowerCase())
+      );
+    }) || [];
+
+  // Helper function to get tenant name by ID
+  const getTenantNameById = React.useCallback(
+    (tenantId) => {
+      if (!tenantId) return "-";
+      const tenantIdValue =
+        typeof tenantId === "object" ? tenantId?.id : tenantId;
+      const foundTenant = tenants?.find(
+        (t) => t.id === parseInt(tenantIdValue)
+      );
+      return (
+        foundTenant?.full_name ||
+        foundTenant?.name ||
+        `Tenant #${tenantIdValue}`
+      );
+    },
+    [tenants]
+  );
+
   const handlePrint = (payment) => {
+    // Determine payment type and extract correct data
+    const isRent = payment.payment_type === "rent";
+    const unitName =
+      payment.unit_name || payment.unit || `Unit ${payment.unit_id || "-"}`;
+    const tenantId = isRent ? payment.tenant : null;
+    const tenantName = tenantId
+      ? getTenantNameById(tenantId)
+      : payment.tenant_name || "-";
+    const paymentMethod = payment.payment_method || payment.method || "-";
+    const paymentDate =
+      payment.payment_date || payment.date || payment.rent_start || null;
+    const amount = parseFloat(payment.amount || 0);
+    const category = payment.category || "-";
+    const notes = payment.notes || "";
+    const paymentStatus = payment.payment_status || payment.status || "paid";
+    const rentStart = payment.rent_start || null;
+    const rentEnd = payment.rent_end || null;
+
     const printContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Payment Receipt - ${payment.tenant}</title>
+          <title>${
+            isRent
+              ? direction === "rtl"
+                ? "إيصال إيجار"
+                : "Rent Receipt"
+              : direction === "rtl"
+              ? "إيصال دفع"
+              : "Payment Receipt"
+          } - ${unitName}</title>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
@@ -603,9 +859,13 @@ const Payments = () => {
           <div class="receipt-container">
             <div class="header">
               <h1 class="receipt-title">${
-                direction === "rtl"
-                  ? "إيصال دفع الإيجار"
-                  : "Rent Payment Receipt"
+                isRent
+                  ? direction === "rtl"
+                    ? "إيصال إيجار"
+                    : "Rent Receipt"
+                  : direction === "rtl"
+                  ? "إيصال دفع عرضي"
+                  : "Occasional Payment Receipt"
               }</h1>
               <p class="receipt-subtitle">${
                 direction === "rtl"
@@ -625,18 +885,68 @@ const Payments = () => {
                   }
                 </h2>
                 <div class="info-grid">
+                  ${
+                    isRent
+                      ? `
                   <div class="info-item">
                     <div class="label">${
                       direction === "rtl" ? "اسم المستأجر" : "Tenant Name"
                     }</div>
-                    <div class="value">${payment.tenant}</div>
+                    <div class="value">${tenantName}</div>
                   </div>
+                  `
+                      : ""
+                  }
                   <div class="info-item">
                     <div class="label">${
-                      direction === "rtl" ? "رقم الوحدة" : "Unit Number"
+                      direction === "rtl" ? "اسم الوحدة" : "Unit Name"
                     }</div>
-                    <div class="value">${payment.unit}</div>
+                    <div class="value">${unitName}</div>
                   </div>
+                  ${
+                    isRent && rentStart
+                      ? `
+                  <div class="info-item">
+                    <div class="label">${
+                      direction === "rtl"
+                        ? "تاريخ بداية الإيجار"
+                        : "Rent Start Date"
+                    }</div>
+                    <div class="value">${new Date(rentStart).toLocaleDateString(
+                      direction === "rtl" ? "ar-EG" : "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        calendar: "gregory",
+                      }
+                    )}</div>
+                  </div>
+                  `
+                      : ""
+                  }
+                  ${
+                    isRent && rentEnd
+                      ? `
+                  <div class="info-item">
+                    <div class="label">${
+                      direction === "rtl"
+                        ? "تاريخ نهاية الإيجار"
+                        : "Rent End Date"
+                    }</div>
+                    <div class="value">${new Date(rentEnd).toLocaleDateString(
+                      direction === "rtl" ? "ar-EG" : "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        calendar: "gregory",
+                      }
+                    )}</div>
+                  </div>
+                  `
+                      : ""
+                  }
                 </div>
               </div>
 
@@ -650,23 +960,35 @@ const Payments = () => {
                     <div class="label">${
                       direction === "rtl" ? "رقم الإيصال" : "Receipt Number"
                     }</div>
-                    <div class="value">#${payment.id
+                    <div class="value">#${(payment.id || "")
                       .toString()
                       .padStart(6, "0")}</div>
                   </div>
+                  ${
+                    !isRent
+                      ? `
+                  <div class="info-item">
+                    <div class="label">${
+                      direction === "rtl" ? "الفئة" : "Category"
+                    }</div>
+                    <div class="value">${translateCategory(category)}</div>
+                  </div>
+                  `
+                      : ""
+                  }
                   <div class="info-item">
                     <div class="label">${
                       direction === "rtl" ? "طريقة الدفع" : "Payment Method"
                     }</div>
-                    <div class="value">${payment.method}</div>
+                    <div class="value">${translateMethod(paymentMethod)}</div>
                   </div>
                   <div class="info-item">
                     <div class="label">${
                       direction === "rtl" ? "تاريخ الدفع" : "Payment Date"
                     }</div>
                     <div class="value">${
-                      payment.date
-                        ? new Date(payment.date).toLocaleDateString(
+                      paymentDate
+                        ? new Date(paymentDate).toLocaleDateString(
                             direction === "rtl" ? "ar-EG" : "en-US",
                             {
                               year: "numeric",
@@ -680,22 +1002,56 @@ const Payments = () => {
                         : "Not paid yet"
                     }</div>
                   </div>
+                  ${
+                    isRent
+                      ? `
                   <div class="info-item">
                     <div class="label">${
-                      direction === "rtl" ? "تاريخ الاستحقاق" : "Due Date"
+                      direction === "rtl" ? "حالة الدفع" : "Payment Status"
                     }</div>
-                    <div class="value">${new Date(
-                      payment.dueDate
-                    ).toLocaleDateString(
-                      direction === "rtl" ? "ar-EG" : "en-US",
-                      {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        calendar: "gregory",
-                      }
-                    )}</div>
+                    <div class="value">
+                      <span class="status-badge ${
+                        paymentStatus === "paid"
+                          ? "status-paid"
+                          : paymentStatus === "pending"
+                          ? "status-pending"
+                          : paymentStatus === "overdue"
+                          ? "status-overdue"
+                          : ""
+                      }">
+                        ${
+                          paymentStatus === "paid"
+                            ? direction === "rtl"
+                              ? "مدفوع"
+                              : "Paid"
+                            : paymentStatus === "pending"
+                            ? direction === "rtl"
+                              ? "قيد الانتظار"
+                              : "Pending"
+                            : paymentStatus === "overdue"
+                            ? direction === "rtl"
+                              ? "متأخر"
+                              : "Overdue"
+                            : paymentStatus
+                        }
+                      </span>
+                    </div>
                   </div>
+                  `
+                      : ""
+                  }
+                  ${
+                    notes
+                      ? `
+                  <div class="info-item">
+                    <div class="label">${
+                      direction === "rtl" ? "ملاحظات" : "Notes"
+                    }</div>
+                    <div class="value">${notes}</div>
+                  </div>
+                  `
+                      : ""
+                  }
                 </div>
               </div>
 
@@ -711,11 +1067,18 @@ const Payments = () => {
                 
                 <div class="amount-display">
                   <div class="amount-label">${
-                    direction === "rtl"
+                    isRent
+                      ? direction === "rtl"
+                        ? "إجمالي مبلغ الإيجار"
+                        : "Total Rent Amount"
+                      : direction === "rtl"
                       ? "إجمالي المبلغ المدفوع"
                       : "Total Amount Paid"
                   }</div>
-                  <div class="amount-value">$${payment.amount.toLocaleString()}</div>
+                  <div class="amount-value">$${amount.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}</div>
                 </div>
               </div>
 
@@ -794,17 +1157,60 @@ const Payments = () => {
           </p>
         </div>
 
-        <div className="mt-6 sm:mt-0 flex flex-row justify-end gap-3">
-          <Button
-            size="lg"
-            className="shadow-sm hover:shadow-md transition-all duration-200 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-6 py-3"
-            onClick={handleAddNew}
+        {activeTab === "unit-payments" && (
+          <div className="mt-6 sm:mt-0 flex flex-row justify-end gap-3">
+            <Button
+              size="lg"
+              className="shadow-sm hover:shadow-md transition-all duration-200 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-6 py-3"
+              onClick={handleAddNew}
+            >
+              <Plus
+                className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+              />
+              {t("payments.recordPayment")}
+            </Button>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Tabs */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700"
+      >
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setActiveTab("unit-payments")}
+            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+              activeTab === "unit-payments"
+                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            }`}
           >
-            <Plus
-              className={`h-5 w-5 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
-            />
-            {t("payments.recordPayment")}
-          </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Building className="h-5 w-5" />
+              <span>
+                {direction === "rtl" ? "دفعات الوحدات" : "Unit Payments"}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("owner-payments")}
+            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+              activeTab === "owner-payments"
+                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <User className="h-5 w-5" />
+              <span>
+                {direction === "rtl" ? "دفعات الملاك" : "Owner Payments"}
+              </span>
+            </div>
+          </button>
         </div>
       </motion.div>
 
@@ -819,10 +1225,10 @@ const Payments = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {t("payments.totalCollected")}
+                  {direction === "rtl" ? "إجمالي الإيرادات" : "Total Revenue"}
                 </p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  $5,300
+                  ${companyRevenue?.total?.toLocaleString() || "0"}
                 </p>
               </div>
               <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
@@ -841,10 +1247,12 @@ const Payments = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {t("payments.pending")}
+                  {direction === "rtl"
+                    ? "إيرادات هذا الشهر"
+                    : "This Month Revenue"}
                 </p>
                 <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  $1,300
+                  ${companyRevenue?.total_this_month?.toLocaleString() || "0"}
                 </p>
               </div>
               <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
@@ -863,14 +1271,14 @@ const Payments = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {t("payments.overdue")}
+                  {direction === "rtl" ? "إيرادات الشركة" : "Company Revenue"}
                 </p>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                  $2,400
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  ${companyRevenue?.company_total?.toLocaleString() || "0"}
                 </p>
               </div>
-              <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
-                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                <CreditCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </Card>
@@ -885,266 +1293,452 @@ const Payments = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {t("payments.collectionRate")}
+                  {direction === "rtl"
+                    ? "إجمالي الدفعات العرضية"
+                    : "Occasional Payments"}
                 </p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  50%
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  ${companyRevenue?.total_occasional?.toLocaleString() || "0"}
                 </p>
               </div>
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                <CreditCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </Card>
         </motion.div>
       </div>
 
-      {/* Search and Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="flex flex-col sm:flex-row gap-4"
-      >
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
-            <Input
-              placeholder={t("payments.searchPayments")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
-        </div>
-        <div className="sm:w-48">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+      {/* Unit Payments Content */}
+      {activeTab === "unit-payments" && (
+        <>
+          {/* Search and Filters */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="flex flex-col sm:flex-row gap-4"
           >
-            <option value="all">{t("payments.allStatus")}</option>
-            <option value="paid">{t("payments.paid")}</option>
-            <option value="pending">{t("payments.pending")}</option>
-            <option value="overdue">{t("payments.overdue")}</option>
-          </select>
-        </div>
-      </motion.div>
-
-      {/* Payments Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <Card className="shadow-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t("payments.recentPayments")}
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`mt-4 sm:mt-0 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                  direction === "rtl" ? "ml-2" : "mr-2"
-                }`}
-              >
-                <Download
-                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <Input
+                  placeholder={t("payments.searchPayments")}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
-                {t("common.export")}
-              </Button>
+              </div>
             </div>
+            <div className="sm:w-48">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+              >
+                <option value="all">
+                  {direction === "rtl" ? "جميع الفئات" : "All Categories"}
+                </option>
+                <option value="wifi">
+                  {direction === "rtl" ? "واي فاي" : "WiFi"}
+                </option>
+                <option value="electricity">
+                  {direction === "rtl" ? "كهرباء" : "Electricity"}
+                </option>
+                <option value="water">
+                  {direction === "rtl" ? "مياه" : "Water"}
+                </option>
+                <option value="cleaning">
+                  {direction === "rtl" ? "تنظيف" : "Cleaning"}
+                </option>
+                <option value="maintenance">
+                  {direction === "rtl" ? "صيانة" : "Maintenance"}
+                </option>
+                <option value="repair">
+                  {direction === "rtl" ? "إصلاح" : "Repair"}
+                </option>
+                <option value="other">
+                  {direction === "rtl" ? "أخرى" : "Other"}
+                </option>
+              </select>
+            </div>
+          </motion.div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                      {t("payments.tenant")}
-                    </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                      {t("payments.amount")}
-                    </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                      {t("payments.method")}
-                    </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                      {t("payments.date")}
-                    </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                      {t("payments.status")}
-                    </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                      {t("common.actions")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPayments.map((payment, index) => (
-                    <motion.tr
-                      key={payment.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200"
-                    >
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                            <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {payment.tenant}
+          {/* Payments Table */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <Card className="shadow-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {t("payments.recentPayments")}
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`mt-4 sm:mt-0 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  >
+                    <Download
+                      className={`h-4 w-4 ${
+                        direction === "rtl" ? "ml-2" : "mr-2"
+                      }`}
+                    />
+                    {t("common.export")}
+                  </Button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {direction === "rtl" ? "الوحدة" : "Unit"}
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {direction === "rtl" ? "النوع" : "Type"}
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {direction === "rtl" ? "الفئة" : "Category"}
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {t("payments.amount")}
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {t("payments.method")}
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {t("payments.date")}
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                          {t("common.actions")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPayments.map((payment, index) => (
+                        <motion.tr
+                          key={payment.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                                <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900 dark:text-white">
+                                  {payment.unit_name ||
+                                    payment.unit ||
+                                    `Unit ${payment.unit_id}`}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Unit {payment.unit}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                payment.payment_type === "rent"
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                              }`}
+                            >
+                              {translatePaymentType(
+                                payment.payment_type || "occasional"
+                              )}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                              {translateCategory(payment.category)}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center">
+                              <DollarSign className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-1" />
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                $
+                                {parseFloat(
+                                  payment.amount || 0
+                                ).toLocaleString()}
+                              </span>
                             </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-1" />
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {payment.amount.toLocaleString()}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {payment.method}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="text-sm">
-                          <div className="text-gray-900 dark:text-white">
-                            {payment.date
-                              ? new Date(payment.date).toLocaleDateString(
-                                  direction === "rtl" ? "ar-EG" : "en-US",
-                                  {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                    calendar: "gregory",
-                                  }
-                                )
-                              : direction === "rtl"
-                              ? "غير مدفوع"
-                              : "Not paid"}
-                          </div>
-                          {!payment.date && (
-                            <div className="text-gray-500 dark:text-gray-400">
-                              {direction === "rtl" ? "مستحق:" : "Due:"}{" "}
-                              {new Date(payment.dueDate).toLocaleDateString(
-                                direction === "rtl" ? "ar-EG" : "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                  calendar: "gregory",
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {translateMethod(
+                                payment.payment_method || payment.method
+                              )}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              <div className="text-gray-900 dark:text-white">
+                                {payment.payment_date || payment.date
+                                  ? new Date(
+                                      payment.payment_date || payment.date
+                                    ).toLocaleDateString(
+                                      direction === "rtl" ? "ar-EG" : "en-US",
+                                      {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                        calendar: "gregory",
+                                      }
+                                    )
+                                  : direction === "rtl"
+                                  ? "غير متاح"
+                                  : "Not available"}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex space-x-2 rtl:space-x-reverse">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                title={
+                                  direction === "rtl"
+                                    ? "عرض الدفع"
+                                    : "View Payment"
                                 }
+                                onClick={() => handleView(payment)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {payment.payment_type !== "rent" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  title={
+                                    direction === "rtl"
+                                      ? "تعديل الدفع"
+                                      : "Edit Payment"
+                                  }
+                                  onClick={() => handleEdit(payment)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                title={
+                                  direction === "rtl"
+                                    ? "طباعة الإيصال"
+                                    : "Print Receipt"
+                                }
+                                onClick={() => handlePrint(payment)}
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              {payment.payment_type !== "rent" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-300 dark:border-red-600 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  title={
+                                    direction === "rtl"
+                                      ? "حذف الدفع"
+                                      : "Delete Payment"
+                                  }
+                                  onClick={() => handleDeletePayment(payment)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               )}
                             </div>
-                          )}
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredPayments.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="mb-4">
+                      <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                      No payments found
+                    </h3>
+                    <p className="text-gray-400 dark:text-gray-500">
+                      Try adjusting your search criteria
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </motion.div>
+        </>
+      )}
+
+      {/* Owner Payments Content */}
+      {activeTab === "owner-payments" && (
+        <>
+          {/* Search */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col sm:flex-row gap-4"
+          >
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <Input
+                  placeholder={
+                    direction === "rtl"
+                      ? "ابحث عن الملاك..."
+                      : "Search owners..."
+                  }
+                  value={ownerSearchTerm}
+                  onChange={(e) => setOwnerSearchTerm(e.target.value)}
+                  className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Owners Grid */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredOwners.map((owner, index) => {
+                const ownerPaymentData = ownerPayments[owner.id];
+                const stillNeedToPay = parseFloat(
+                  ownerPaymentData?.still_need_to_pay || 0
+                );
+                return (
+                  <motion.div
+                    key={owner.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="p-6 hover:shadow-lg transition-shadow">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                            <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {owner.full_name || owner.name || "N/A"}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {owner.email || ""}
+                            </p>
+                          </div>
                         </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                              payment.status
-                            )}`}
-                          >
-                            {t(`payments.${payment.status}`)}
+                      </div>
+
+                      <div className="space-y-3 mb-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {direction === "rtl" ? "المستحق" : "Total Due"}
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            }).format(
+                              parseFloat(ownerPaymentData?.owner_total || 0)
+                            )}
                           </span>
                         </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex space-x-2 rtl:space-x-reverse">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                            title={
-                              direction === "rtl" ? "عرض الدفع" : "View Payment"
-                            }
-                            onClick={() => handleView(payment)}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {direction === "rtl" ? "المتبقي" : "Remaining"}
+                          </span>
+                          <span
+                            className={`font-semibold ${
+                              stillNeedToPay > 0
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-green-600 dark:text-green-400"
+                            }`}
                           >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                            title={
-                              direction === "rtl"
-                                ? "تعديل الدفع"
-                                : "Edit Payment"
-                            }
-                            onClick={() => handleEdit(payment)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            title={
-                              direction === "rtl"
-                                ? "طباعة الإيصال"
-                                : "Print Receipt"
-                            }
-                            onClick={() => handlePrint(payment)}
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          {payment.status !== "paid" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
-                              title={
-                                direction === "rtl"
-                                  ? "تأكيد الدفع"
-                                  : "Mark as Paid"
-                              }
-                              onClick={() => handleMarkAsPaid(payment)}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            }).format(stillNeedToPay)}
+                          </span>
                         </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleViewOwnerPayments(owner)}
+                        >
+                          <Eye
+                            className={`h-4 w-4 ${
+                              direction === "rtl" ? "ml-2" : "mr-2"
+                            }`}
+                          />
+                          {direction === "rtl" ? "عرض" : "View"}
+                        </Button>
+                        {stillNeedToPay > 0 && (
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handlePayOwner(owner)}
+                          >
+                            <Plus
+                              className={`h-4 w-4 ${
+                                direction === "rtl" ? "ml-2" : "mr-2"
+                              }`}
+                            />
+                            {direction === "rtl" ? "دفع" : "Pay"}
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </div>
 
-            {filteredPayments.length === 0 && (
+            {filteredOwners.length === 0 && (
               <div className="text-center py-12">
                 <div className="mb-4">
-                  <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
+                  <User className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-500 dark:text-gray-400 mb-2">
-                  No payments found
+                  {direction === "rtl" ? "لا يوجد ملاك" : "No owners found"}
                 </h3>
                 <p className="text-gray-400 dark:text-gray-500">
-                  Try adjusting your search criteria
+                  {direction === "rtl"
+                    ? "جرب تغيير معايير البحث"
+                    : "Try adjusting your search criteria"}
                 </p>
               </div>
             )}
-          </div>
-        </Card>
-      </motion.div>
+          </motion.div>
+        </>
+      )}
 
       {/* Modals */}
       {showForm && (
         <PaymentForm
           payment={editingPayment}
+          unitId={selectedUnitId}
           onSave={handleSavePayment}
           onClose={handleCloseForm}
           isEdit={!!editingPayment}
@@ -1157,6 +1751,25 @@ const Payments = () => {
           onClose={handleCloseViewModal}
           onEdit={handleEdit}
           onPrint={handlePrint}
+        />
+      )}
+
+      {/* Owner Payments Modals */}
+      {showOwnerPaymentsModal && selectedOwner && (
+        <OwnerPaymentsModal
+          owner={selectedOwner}
+          ownerData={ownerPayments[selectedOwner.id]}
+          onClose={handleCloseOwnerPaymentsModal}
+          onPay={() => handlePayOwner(selectedOwner)}
+          isLoading={paymentsLoading}
+        />
+      )}
+
+      {showOwnerPaymentForm && selectedOwner && (
+        <OwnerPaymentForm
+          owner={selectedOwner}
+          onSave={handleSaveOwnerPayment}
+          onClose={handleCloseOwnerPaymentForm}
         />
       )}
     </div>

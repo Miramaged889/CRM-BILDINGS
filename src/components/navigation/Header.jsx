@@ -1,15 +1,12 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { useAuthStore } from "../../stores/authStore";
 import { useTranslation } from "react-i18next";
-import { Menu, X, LogOut, Bell, Search } from "lucide-react";
+import { Menu, X, Bell, Search } from "lucide-react";
 import ThemeToggle from "../ui/ThemeToggle";
 import LanguageSwitcher from "../ui/LanguageSwitcher";
-import Avatar from "../ui/Avatar";
 import Input from "../ui/Input";
 
 const Header = ({ onMenuClick, sidebarOpen }) => {
-  const { user, logout } = useAuthStore();
   const { t } = useTranslation();
 
   return (
@@ -80,32 +77,6 @@ const Header = ({ onMenuClick, sidebarOpen }) => {
 
           <LanguageSwitcher />
           <ThemeToggle />
-
-          <motion.div
-            className="flex items-center space-x-3 rtl:space-x-reverse"
-            whileHover={{ scale: 1.02 }}
-            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-          >
-            <Avatar src={user?.avatar} alt={user?.name} size="sm" />
-            <div className="hidden sm:block">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.name}
-              </p>
-              <p className="text-xs text-gray-500 capitalize">
-                {t(`common.${user?.role}`)}
-              </p>
-            </div>
-          </motion.div>
-
-          <motion.button
-            onClick={logout}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title={t("nav.logout")}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <LogOut className="h-5 w-5 text-gray-500" />
-          </motion.button>
         </div>
       </div>
     </motion.header>

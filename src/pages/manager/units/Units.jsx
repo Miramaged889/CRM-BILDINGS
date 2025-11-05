@@ -1,7 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../../stores/languageStore";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import {
+  fetchUnits,
+  createUnit,
+  updateUnit,
+  deleteUnit,
+  clearError,
+} from "../../../store/slices/unitsSlice";
 import {
   Search,
   Plus,
@@ -11,15 +19,20 @@ import {
   Trash2,
   Wrench,
   CheckCircle,
+  UserCheck,
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
+import { UnitForm } from "../../../components/manger form";
 
 const Units = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
+  const dispatch = useAppDispatch();
+  const { units, isLoading, error } = useAppSelector((state) => state.units);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -27,188 +40,101 @@ const Units = () => {
   const [districtFilter, setDistrictFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editingUnit, setEditingUnit] = useState(null);
 
-  const units = [
-    {
-      id: 1,
-      number: "A-101",
-      type: "apartment",
-      status: "occupied",
-      rent: 1200,
-      tenant: "John Smith",
-      city: "Dubai",
-      district: "Downtown",
-      createdAt: "2025-10-15",
-      leaseStart: "2025-10-01",
-      image:
-        "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 2,
-      number: "A-102",
-      type: "apartment",
-      status: "available",
-      rent: 1150,
-      tenant: null,
-      city: "Dubai",
-      district: "Downtown",
-      createdAt: "2025-10-10",
-      leaseStart: null,
-      image:
-        "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 3,
-      number: "B-201",
-      type: "villa",
-      status: "occupied",
-      rent: 2500,
-      tenant: "Sarah Johnson",
-      city: "Dubai",
-      district: "Palm Jumeirah",
-      createdAt: "2025-10-20",
-      leaseStart: "2025-10-15",
-      image:
-        "https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 4,
-      number: "C-301",
-      type: "office",
-      status: "maintenance",
-      rent: 1800,
-      tenant: null,
-      city: "Cairo",
-      district: "Zamalek",
-      createdAt: "2025-10-05",
-      leaseStart: null,
-      image:
-        "https://images.pexels.com/photos/1957477/pexels-photo-1957477.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 5,
-      number: "D-101",
-      type: "shop",
-      status: "available",
-      rent: 2200,
-      tenant: null,
-      city: "Cairo",
-      district: "Maadi",
-      createdAt: "2025-10-28",
-      leaseStart: null,
-      image:
-        "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 6,
-      number: "A-103",
-      type: "apartment",
-      status: "occupied",
-      rent: 1300,
-      tenant: "Mike Davis",
-      city: "Dubai",
-      district: "Marina",
-      createdAt: "2025-10-25",
-      leaseStart: "2025-10-01",
-      image:
-        "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 7,
-      number: "E-401",
-      type: "studio",
-      status: "available",
-      rent: 800,
-      tenant: null,
-      city: "Dubai",
-      district: "Jumeirah",
-      createdAt: "2025-10-12",
-      leaseStart: null,
-      image:
-        "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 8,
-      number: "F-501",
-      type: "penthouse",
-      status: "occupied",
-      rent: 3500,
-      tenant: "Ahmed Al-Rashid",
-      city: "Dubai",
-      district: "Burj Khalifa",
-      createdAt: "2025-10-15",
-      leaseStart: "2025-10-20",
-      image:
-        "https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 9,
-      number: "G-201",
-      type: "warehouse",
-      status: "available",
-      rent: 1500,
-      tenant: null,
-      city: "Cairo",
-      district: "New Cairo",
-      createdAt: "2025-10-20",
-      leaseStart: null,
-      image:
-        "https://images.pexels.com/photos/2219024/pexels-photo-2219024.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-    {
-      id: 10,
-      number: "H-301",
-      type: "retail",
-      status: "occupied",
-      rent: 2800,
-      tenant: "Fashion Store LLC",
-      city: "Dubai",
-      district: "Dubai Mall",
-      createdAt: "2025-10-30",
-      leaseStart: "2025-10-15",
-      image:
-        "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg?auto=compress&cs=tinysrgb&w=300&h=200",
-    },
-  ];
+  // Fetch units on mount
+  useEffect(() => {
+    dispatch(fetchUnits());
+  }, [dispatch]);
 
-  const statusColors = {
-    available:
-      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-    occupied: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-    maintenance:
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  const handleDelete = async (unitId) => {
+    if (
+      window.confirm(
+        direction === "rtl"
+          ? "هل أنت متأكد من حذف هذه الوحدة؟"
+          : "Are you sure you want to delete this unit?"
+      )
+    ) {
+      try {
+        await dispatch(deleteUnit(unitId)).unwrap();
+        toast.success(t("units.deleteSuccess") || "Unit deleted successfully");
+      } catch (err) {
+        toast.error(err || "Failed to delete unit");
+      }
+    }
   };
 
-  // Get unique cities, districts, and types for filter options
-  const cities = [...new Set(units.map((unit) => unit.city))];
-  const districts = [...new Set(units.map((unit) => unit.district))];
-  const types = [...new Set(units.map((unit) => unit.type))];
+  // Get unique cities, districts, and types from API data
+  const cities = [
+    ...new Set(
+      units.map((unit) => unit.city_name || unit.city || "").filter(Boolean)
+    ),
+  ];
+  const districts = [
+    ...new Set(
+      units
+        .map((unit) => unit.district_name || unit.district || "")
+        .filter(Boolean)
+    ),
+  ];
+  const types = [
+    ...new Set(
+      units.map((unit) => (unit.type || "").toLowerCase()).filter(Boolean)
+    ),
+  ];
 
   const filteredUnits = units.filter((unit) => {
+    const unitName = unit.name || "";
+    const locationText = unit.location_text || "";
+    const tenantName = unit.current_tenant_name || "";
+    const cityName = unit.city_name || unit.city || "";
+    const districtName = unit.district_name || unit.district || "";
+    const unitType = (unit.type || "").toLowerCase();
+    const unitStatus = (unit.status || "").toLowerCase();
+
     const matchesSearch =
-      unit.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (unit.tenant &&
-        unit.tenant.toLowerCase().includes(searchTerm.toLowerCase()));
+      unitName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      locationText.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (tenantName &&
+        tenantName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      cityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      districtName.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus =
-      statusFilter === "all" || unit.status === statusFilter;
-    const matchesType = typeFilter === "all" || unit.type === typeFilter;
-    const matchesCity = cityFilter === "all" || unit.city === cityFilter;
+      statusFilter === "all" ||
+      unitStatus === statusFilter.toLowerCase() ||
+      (statusFilter === "maintenance" && unitStatus === "in_maintenance");
+
+    const matchesType =
+      typeFilter === "all" || unitType === typeFilter.toLowerCase();
+    const matchesCity = cityFilter === "all" || cityName === cityFilter;
     const matchesDistrict =
-      districtFilter === "all" || unit.district === districtFilter;
+      districtFilter === "all" || districtName === districtFilter;
 
     // Date filtering logic
     let matchesDate = true;
     if (fromDate || toDate) {
-      const unitDate = new Date(unit.createdAt);
-      const from = fromDate ? new Date(fromDate) : null;
-      const to = toDate ? new Date(toDate) : null;
+      const leaseStart = unit.lease_start;
+      if (leaseStart) {
+        const unitDate = new Date(leaseStart);
+        const from = fromDate ? new Date(fromDate) : null;
+        const to = toDate ? new Date(toDate) : null;
 
-      if (from && to) {
-        matchesDate = unitDate >= from && unitDate <= to;
-      } else if (from) {
-        matchesDate = unitDate >= from;
-      } else if (to) {
-        matchesDate = unitDate <= to;
+        if (from && to) {
+          matchesDate = unitDate >= from && unitDate <= to;
+        } else if (from) {
+          matchesDate = unitDate >= from;
+        } else if (to) {
+          matchesDate = unitDate <= to;
+        }
       }
     }
 
@@ -221,6 +147,39 @@ const Units = () => {
       matchesDate
     );
   });
+
+  if (isLoading && units.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
+            {t("common.loading")}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const statusColors = {
+    available:
+      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    occupied: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    in_maintenance:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    maintenance:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  };
+
+  const getStatusLabel = (status) => {
+    const statusMap = {
+      available: direction === "rtl" ? "متاح" : "Available",
+      occupied: direction === "rtl" ? "مؤجر" : "Occupied",
+      in_maintenance: direction === "rtl" ? "صيانة" : "Maintenance",
+      maintenance: direction === "rtl" ? "صيانة" : "Maintenance",
+    };
+    return statusMap[status?.toLowerCase()] || status;
+  };
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
@@ -238,7 +197,13 @@ const Units = () => {
             {t("units.manageUnits")}
           </p>
         </div>
-        <Button className="mt-6 sm:mt-0 shadow-sm hover:shadow-md transition-shadow">
+        <Button
+          className="mt-6 sm:mt-0 shadow-sm hover:shadow-md transition-shadow"
+          onClick={() => {
+            setEditingUnit(null);
+            setShowForm(true);
+          }}
+        >
           <Plus
             className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
           />
@@ -445,8 +410,12 @@ const Units = () => {
             <Card className="overflow-hidden p-0 hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-gray-800 group">
               <div className="relative overflow-hidden">
                 <img
-                  src={unit.image}
-                  alt={unit.number}
+                  src={
+                    unit.cover_image ||
+                    unit.images?.[0] ||
+                    "https://via.placeholder.com/300x200"
+                  }
+                  alt={unit.name}
                   className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
@@ -457,10 +426,11 @@ const Units = () => {
                 >
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-semibold shadow-lg ${
-                      statusColors[unit.status]
+                      statusColors[unit.status?.toLowerCase()] ||
+                      statusColors.available
                     }`}
                   >
-                    {t(`units.${unit.status}`)}
+                    {getStatusLabel(unit.status)}
                   </span>
                 </div>
                 <div
@@ -470,24 +440,25 @@ const Units = () => {
                 >
                   <span className="px-3 py-1 bg-white/90 dark:bg-gray-800/90 rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-sm">
                     {direction === "rtl"
-                      ? unit.type === "apartment"
+                      ? (unit.type || "").toLowerCase() === "apartment"
                         ? "شقة"
-                        : unit.type === "villa"
+                        : (unit.type || "").toLowerCase() === "villa"
                         ? "فيلا"
-                        : unit.type === "office"
+                        : (unit.type || "").toLowerCase() === "office"
                         ? "مكتب"
-                        : unit.type === "shop"
+                        : (unit.type || "").toLowerCase() === "shop"
                         ? "محل"
-                        : unit.type === "studio"
+                        : (unit.type || "").toLowerCase() === "studio"
                         ? "استوديو"
-                        : unit.type === "penthouse"
+                        : (unit.type || "").toLowerCase() === "penthouse"
                         ? "بنتهاوس"
-                        : unit.type === "warehouse"
+                        : (unit.type || "").toLowerCase() === "warehouse"
                         ? "مستودع"
-                        : unit.type === "retail"
+                        : (unit.type || "").toLowerCase() === "retail"
                         ? "تجاري"
                         : unit.type
-                      : unit.type.charAt(0).toUpperCase() + unit.type.slice(1)}
+                      : (unit.type || "").charAt(0).toUpperCase() +
+                        (unit.type || "").slice(1).toLowerCase()}
                   </span>
                 </div>
               </div>
@@ -495,20 +466,22 @@ const Units = () => {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {unit.number}
+                    {unit.name}
                   </h3>
-                  <div
-                    className={`${
-                      direction === "rtl" ? "text-left" : "text-right"
-                    }`}
-                  >
-                    <div className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                      ${unit.rent}
+                  {unit.price_per_day && (
+                    <div
+                      className={`${
+                        direction === "rtl" ? "text-left" : "text-right"
+                      }`}
+                    >
+                      <div className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                        ${parseFloat(unit.price_per_day).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {t("units.perDay") || "/day"}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("units.perMonth")}
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Location Info */}
@@ -521,28 +494,36 @@ const Units = () => {
                       </span>
                     </div>
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {unit.district}, {unit.city}
+                      {unit.district_name || unit.district},{" "}
+                      {unit.city_name || unit.city}
                     </div>
                   </div>
+                  {unit.location_text && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {unit.location_text}
+                    </div>
+                  )}
                 </div>
 
-                {unit.tenant && unit.status === "occupied" && (
-                  <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {t("units.currentTenant")}:
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {unit.tenant}
-                        </span>
+                {unit.current_tenant_name &&
+                  (unit.status?.toLowerCase() === "occupied" ||
+                    unit.status?.toLowerCase() === "in_maintenance") && (
+                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {t("units.currentTenant") || "Current Tenant"}:
+                          </span>
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {unit.current_tenant_name}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {unit.status === "available" && (
+                {unit.status?.toLowerCase() === "available" && (
                   <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
                       <CheckCircle className="w-4 h-4 text-green-500" />
@@ -557,7 +538,21 @@ const Units = () => {
                   </div>
                 )}
 
-                {unit.status === "maintenance" && (
+                {unit.status?.toLowerCase() === "occupied" && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                      <UserCheck className="w-4 h-4 text-blue-500" />
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                          {direction === "rtl" ? "مؤجرة" : "Occupied"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {(unit.status?.toLowerCase() === "maintenance" ||
+                  unit.status?.toLowerCase() === "in_maintenance") && (
                   <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
                       <Wrench className="w-4 h-4 text-amber-500" />
@@ -584,14 +579,18 @@ const Units = () => {
                           direction === "rtl" ? "ml-1" : "mr-1"
                         }`}
                       />
-                      {t("units.view")}
+                      {t("units.view") || "View"}
                     </Button>
                   </Link>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title={t("units.edit")}
+                    title={t("units.edit") || "Edit"}
+                    onClick={() => {
+                      setEditingUnit(unit);
+                      setShowForm(true);
+                    }}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -599,7 +598,8 @@ const Units = () => {
                     variant="ghost"
                     size="sm"
                     className="hover:bg-red-50 dark:hover:bg-red-900/20"
-                    title={t("units.delete")}
+                    title={t("units.delete") || "Delete"}
+                    onClick={() => handleDelete(unit.id)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -635,6 +635,40 @@ const Units = () => {
             </p>
           )}
         </motion.div>
+      )}
+
+      {/* Unit Form Modal */}
+      {showForm && (
+        <UnitForm
+          unit={editingUnit}
+          onSave={async (unitData) => {
+            try {
+              if (editingUnit) {
+                await dispatch(
+                  updateUnit({ id: editingUnit.id, data: unitData })
+                ).unwrap();
+                toast.success(
+                  t("units.updateSuccess") || "Unit updated successfully"
+                );
+              } else {
+                await dispatch(createUnit(unitData)).unwrap();
+                toast.success(
+                  t("units.addSuccess") || "Unit added successfully"
+                );
+              }
+              setShowForm(false);
+              setEditingUnit(null);
+              dispatch(fetchUnits()); // Refresh units list
+            } catch (err) {
+              toast.error(err || "Failed to save unit");
+            }
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingUnit(null);
+          }}
+          isEdit={!!editingUnit}
+        />
       )}
     </div>
   );

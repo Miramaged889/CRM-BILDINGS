@@ -1,6 +1,14 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  fetchHomeMetrics,
+  fetchStockMetrics,
+  clearError,
+} from "../../store/slices/dashboardSlice";
+import { fetchNotifications } from "../../store/slices/notificationsSlice";
 import {
   BarChart,
   Bar,
@@ -15,58 +23,108 @@ import {
 import StatCard from "../../components/ui/StatCard";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-import { useAuthStore } from "../../stores/authStore";
 import { useThemeStore } from "../../stores/themeStore";
+import toast from "react-hot-toast";
 
 const Dashboard = () => {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
+  const { homeMetrics, stockMetrics, isLoading, error } = useAppSelector(
+    (state) => state.dashboard
+  );
+  const { notifications, isLoading: notificationsLoading } = useAppSelector(
+    (state) => state.notifications
+  );
   const { isDark } = useThemeStore();
+
+  // Fetch metrics on mount
+  useEffect(() => {
+    dispatch(fetchHomeMetrics());
+    dispatch(fetchStockMetrics());
+    dispatch(fetchNotifications());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Calculate occupancy rate
+  const occupancyRate = homeMetrics?.total_units
+    ? Math.round(
+        (homeMetrics.total_units_occupied / homeMetrics.total_units) * 100
+      )
+    : 0;
 
   const stats = [
     {
       title: t("dashboard.totalUnits"),
-      value: "248",
-      change: "+12 " + t("dashboard.fromLastMonth"),
+      value: homeMetrics?.total_units?.toString() || "0",
+      change: occupancyRate + "% " + t("dashboard.occupancyRate"),
       changeType: "positive",
       icon: "Building",
       color: "primary",
     },
     {
       title: t("dashboard.occupiedUnits"),
-      value: "186",
-      change: "75% " + t("dashboard.occupancyRate"),
+      value: homeMetrics?.total_units_occupied?.toString() || "0",
+      change: `${
+        homeMetrics?.total_units
+          ? Math.round(
+              (homeMetrics.total_units_occupied / homeMetrics.total_units) * 100
+            )
+          : 0
+      }% ${t("dashboard.occupancyRate")}`,
       changeType: "positive",
       icon: "Users",
       color: "green",
     },
     {
       title: t("dashboard.totalRevenue"),
-      value: "$124,500",
-      change: "+8.2% " + t("dashboard.fromLastMonth"),
+      value: homeMetrics?.total_revenue
+        ? formatCurrency(homeMetrics.total_revenue)
+        : "$0",
+      change: t("dashboard.fromLastMonth"),
       changeType: "positive",
       icon: "DollarSign",
       color: "blue",
     },
     {
       title: t("dashboard.pendingPayments"),
-      value: "23",
+      value: homeMetrics?.pending_payments
+        ? formatCurrency(homeMetrics.pending_payments)
+        : "$0",
       change: t("dashboard.dueThisWeek"),
       changeType: "neutral",
       icon: "Clock",
       color: "yellow",
     },
     {
-      title: t("dashboard.maintenanceRequests"),
-      value: "12",
-      change: `3 ${t("dashboard.urgent")}`,
-      changeType: "negative",
-      icon: "Wrench",
-      color: "red",
+      title: t("dashboard.stockItems"),
+      value: stockMetrics?.total_items?.toString() || "0",
+      change: `${stockMetrics?.in_stock_items || 0} ${t("dashboard.inStock")}`,
+      changeType:
+        stockMetrics?.out_of_stock_items > 0 ? "negative" : "positive",
+      icon: "Package",
+      color: "purple",
     },
     {
       title: t("dashboard.newTenants"),
-      value: "8",
+      value: homeMetrics?.new_tenants?.toString() || "0",
       change: t("dashboard.thisMonth"),
       changeType: "positive",
       icon: "UserPlus",
@@ -74,14 +132,76 @@ const Dashboard = () => {
     },
   ];
 
-  const chartData = [
-    { month: "Jan", revenue: 45000, units: 180 },
-    { month: "Feb", revenue: 52000, units: 185 },
-    { month: "Mar", revenue: 48000, units: 178 },
-    { month: "Apr", revenue: 61000, units: 195 },
-    { month: "May", revenue: 55000, units: 188 },
-    { month: "Jun", revenue: 67000, units: 205 },
-  ];
+  // Chart data from API metrics
+  const chartData = useMemo(() => {
+    // Handle various API response structures for monthly revenue and occupancy
+    const monthlyRevenue =
+      homeMetrics?.monthly_revenue || homeMetrics?.revenue_by_month || [];
+    const monthlyOccupancy =
+      homeMetrics?.monthly_occupancy || homeMetrics?.occupancy_by_month || [];
+
+    // If we have API data, use it
+    if (Array.isArray(monthlyRevenue) && monthlyRevenue.length > 0) {
+      // Combine revenue and occupancy data
+      const revenueMap = new Map();
+      monthlyRevenue.forEach((item) => {
+        const month =
+          item.month || item.date || item.period || t("dashboard.unknown");
+        revenueMap.set(month, {
+          month: month,
+          revenue: parseFloat(item.revenue || item.amount || item.value || 0),
+        });
+      });
+
+      monthlyOccupancy.forEach((item) => {
+        const month =
+          item.month || item.date || item.period || t("dashboard.unknown");
+        const existing = revenueMap.get(month) || { month: month, revenue: 0 };
+        revenueMap.set(month, {
+          ...existing,
+          units: parseFloat(item.units || item.occupied || item.value || 0),
+        });
+      });
+
+      // Convert to array and sort by month
+      return Array.from(revenueMap.values())
+        .map((item) => ({
+          month: item.month,
+          revenue: item.revenue || 0,
+          units: item.units || 0,
+        }))
+        .sort((a, b) => {
+          // Simple month sorting
+          const months = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ];
+          const aIndex = months.indexOf(a.month.substring(0, 3));
+          const bIndex = months.indexOf(b.month.substring(0, 3));
+          return aIndex - bIndex;
+        });
+    }
+
+    // Fallback to default data if no API data
+    return [
+      { month: "Jan", revenue: 45000, units: 180 },
+      { month: "Feb", revenue: 52000, units: 185 },
+      { month: "Mar", revenue: 48000, units: 178 },
+      { month: "Apr", revenue: 61000, units: 195 },
+      { month: "May", revenue: 55000, units: 188 },
+      { month: "Jun", revenue: 67000, units: 205 },
+    ];
+  }, [homeMetrics]);
 
   // Enhanced theme-aware colors for better visibility
   const colors = {
@@ -125,42 +245,74 @@ const Dashboard = () => {
     },
   };
 
-  const recentActivity = [
-    {
-      id: 1,
-      action: t("dashboard.newTenantRegistered"),
-      tenant: "John Smith",
-      unit: "A-101",
-      time: "2 hours ago",
-    },
-    {
-      id: 2,
-      action: t("dashboard.paymentReceived"),
-      tenant: "Sarah Johnson",
-      amount: "$1,200",
-      time: "4 hours ago",
-    },
-    {
-      id: 3,
-      action: t("dashboard.maintenanceRequest"),
-      tenant: "Mike Davis",
-      unit: "B-205",
-      time: "6 hours ago",
-    },
-    {
-      id: 4,
-      action: t("dashboard.leaseRenewal"),
-      tenant: "Emily Brown",
-      unit: "C-301",
-      time: "1 day ago",
-    },
-    {
-      id: 5,
-      action: t("dashboard.unitInspectionCompleted"),
-      unit: "D-102",
-      time: "2 days ago",
-    },
-  ];
+  // Format time ago
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now - date);
+      const diffMinutes = Math.floor(diffTime / (1000 * 60));
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffMinutes < 60) {
+        return `${diffMinutes} ${t("dashboard.minutesAgo")}`;
+      } else if (diffHours < 24) {
+        return `${diffHours} ${t("dashboard.hoursAgo")}`;
+      } else {
+        return `${diffDays} ${t("dashboard.daysAgo")}`;
+      }
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Map notifications to recent activity format
+  const recentActivity = useMemo(() => {
+    // Ensure notifications is always an array
+    const notificationsArray = Array.isArray(notifications)
+      ? notifications
+      : [];
+    if (notificationsArray.length === 0) return [];
+
+    return notificationsArray
+      .slice(0, 10) // Get latest 10 notifications
+      .map((notification) => {
+        const message =
+          notification.message || notification.title || notification.text || "";
+        const createdAt =
+          notification.created_at ||
+          notification.createdAt ||
+          notification.date ||
+          "";
+
+        return {
+          id: notification.id,
+          action: message,
+          tenant: notification.tenant_name || notification.tenant || "",
+          unit: notification.unit_name || notification.unit || "",
+          amount: notification.amount || "",
+          time: formatTimeAgo(createdAt),
+          type: notification.type || notification.category || "",
+          read: notification.read || notification.is_read || false,
+        };
+      });
+  }, [notifications, t]);
+
+  // Early return after all hooks are called
+  if (isLoading && !homeMetrics && !stockMetrics) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
+            {t("common.loading")}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
@@ -177,7 +329,10 @@ const Dashboard = () => {
           <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
             {t("dashboard.welcome")},{" "}
             <span className="font-semibold text-primary-600 dark:text-primary-400">
-              {user?.name}
+              {user?.name ||
+                user?.full_name ||
+                user?.email ||
+                t("dashboard.manager")}
             </span>
           </p>
         </div>
@@ -187,12 +342,14 @@ const Dashboard = () => {
             variant="outline"
             size="sm"
             className="shadow-sm hover:shadow-md transition-shadow"
+            onClick={() => navigate("/units")}
           >
             {t("dashboard.addUnit")}
           </Button>
           <Button
             size="sm"
             className="shadow-sm hover:shadow-md transition-shadow"
+            onClick={() => navigate("/tenants")}
           >
             {t("dashboard.addTenant")}
           </Button>
@@ -233,7 +390,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  6M
+                  {t("dashboard.period6Months")}
                 </span>
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
@@ -256,7 +413,11 @@ const Dashboard = () => {
                     tickLine={chartConfig.axis.tickLine}
                     axisLine={chartConfig.axis.axisLine}
                     fill={chartConfig.axis.fill}
-                    tick={{ fill: colors.axisText, fontSize: 12, fontWeight: 500 }}
+                    tick={{
+                      fill: colors.axisText,
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
                     dy={10}
                   />
                   <YAxis
@@ -266,7 +427,11 @@ const Dashboard = () => {
                     tickLine={chartConfig.axis.tickLine}
                     axisLine={chartConfig.axis.axisLine}
                     fill={chartConfig.axis.fill}
-                    tick={{ fill: colors.axisText, fontSize: 12, fontWeight: 500 }}
+                    tick={{
+                      fill: colors.axisText,
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
                     tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                     dx={-10}
                   />
@@ -284,7 +449,11 @@ const Dashboard = () => {
                       `$${value.toLocaleString()}`,
                       t("dashboard.monthlyRevenue"),
                     ]}
-                    cursor={{ fill: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)" }}
+                    cursor={{
+                      fill: isDark
+                        ? "rgba(255, 255, 255, 0.05)"
+                        : "rgba(0, 0, 0, 0.03)",
+                    }}
                   />
                   <Bar
                     dataKey="revenue"
@@ -316,7 +485,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  6M
+                  {t("dashboard.period6Months")}
                 </span>
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
@@ -339,7 +508,11 @@ const Dashboard = () => {
                     tickLine={chartConfig.axis.tickLine}
                     axisLine={chartConfig.axis.axisLine}
                     fill={chartConfig.axis.fill}
-                    tick={{ fill: colors.axisText, fontSize: 12, fontWeight: 500 }}
+                    tick={{
+                      fill: colors.axisText,
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
                     dy={10}
                   />
                   <YAxis
@@ -349,7 +522,11 @@ const Dashboard = () => {
                     tickLine={chartConfig.axis.tickLine}
                     axisLine={chartConfig.axis.axisLine}
                     fill={chartConfig.axis.fill}
-                    tick={{ fill: colors.axisText, fontSize: 12, fontWeight: 500 }}
+                    tick={{
+                      fill: colors.axisText,
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
                     dx={-10}
                   />
                   <Tooltip
@@ -366,7 +543,11 @@ const Dashboard = () => {
                       `${value} ${t("dashboard.units")}`,
                       t("dashboard.unitOccupancyTrend"),
                     ]}
-                    cursor={{ stroke: colors.secondary, strokeWidth: 1, strokeDasharray: "3 3" }}
+                    cursor={{
+                      stroke: colors.secondary,
+                      strokeWidth: 1,
+                      strokeDasharray: "3 3",
+                    }}
                   />
                   <Line
                     type="monotone"
@@ -410,30 +591,61 @@ const Dashboard = () => {
               <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
             </div>
             <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 + 0.5 }}
-                  className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex items-center space-x-4 rtl:space-x-reverse">
-                    <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {activity.action}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {activity.tenant && `${activity.tenant} • `}
-                        {activity.unit && `${activity.unit} • `}
-                        {activity.amount && `${activity.amount} • `}
-                        {activity.time}
-                      </p>
+              {notificationsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">
+                    {t("common.loading")}
+                  </p>
+                </div>
+              ) : recentActivity && recentActivity.length > 0 ? (
+                recentActivity.map((activity, index) => (
+                  <motion.div
+                    key={activity.id || index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 + 0.5 }}
+                    className={`flex items-center justify-between p-4 rounded-xl hover:shadow-md transition-shadow duration-200 ${
+                      activity.read
+                        ? "bg-gray-50 dark:bg-gray-700/50"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4 rtl:space-x-reverse">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          activity.read
+                            ? "bg-gray-400 dark:bg-gray-500"
+                            : "bg-primary-500"
+                        }`}
+                      ></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {activity.action}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {activity.tenant && `${activity.tenant} • `}
+                          {activity.unit && `${activity.unit} • `}
+                          {activity.amount && `${activity.amount} • `}
+                          {activity.time}
+                        </p>
+                      </div>
                     </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
                   </div>
-                </motion.div>
-              ))}
+                  <h3 className="text-lg font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                    {t("dashboard.noActivity")}
+                  </h3>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    {t("dashboard.noActivityDescription")}
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         </motion.div>
@@ -456,6 +668,7 @@ const Dashboard = () => {
                 variant="outline"
                 className="w-full justify-start hover:bg-primary-50 dark:hover:bg-primary-900/20"
                 size="sm"
+                onClick={() => navigate("/units")}
               >
                 {t("dashboard.addUnit")}
               </Button>
@@ -463,6 +676,7 @@ const Dashboard = () => {
                 variant="outline"
                 className="w-full justify-start hover:bg-primary-50 dark:hover:bg-primary-900/20"
                 size="sm"
+                onClick={() => navigate("/tenants")}
               >
                 {t("dashboard.addTenant")}
               </Button>
@@ -470,6 +684,7 @@ const Dashboard = () => {
                 variant="outline"
                 className="w-full justify-start hover:bg-primary-50 dark:hover:bg-primary-900/20"
                 size="sm"
+                onClick={() => navigate("/payments")}
               >
                 {t("dashboard.recordPayment")}
               </Button>
@@ -477,6 +692,7 @@ const Dashboard = () => {
                 variant="outline"
                 className="w-full justify-start hover:bg-primary-50 dark:hover:bg-primary-900/20"
                 size="sm"
+                onClick={() => navigate("/reports")}
               >
                 {t("dashboard.generateReport")}
               </Button>

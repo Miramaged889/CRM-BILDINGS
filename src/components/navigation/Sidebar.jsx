@@ -2,13 +2,15 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { useLanguageStore } from "../../stores/languageStore";
+import { useAuthStore } from "../../stores/authStore";
 import Icon from "../ui/Icon";
 
 const Sidebar = ({ navItems, isOpen, onClose }) => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
+  const { logout } = useAuthStore();
 
   const sidebarVariants = {
     open: {
@@ -201,9 +203,33 @@ const Sidebar = ({ navItems, isOpen, onClose }) => {
 
         {/* Footer */}
         <motion.div
-          className="p-4 border-t border-gray-200 dark:border-gray-700"
+          className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3"
           variants={contentVariants}
         >
+          {/* Logout Button */}
+          <motion.button
+            onClick={logout}
+            className="w-full flex items-center space-x-3 rtl:space-x-reverse px-4 py-3 rounded-xl transition-all duration-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 hover:shadow-md hover:scale-[1.01] group"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+          >
+            <motion.div
+              className="relative z-10"
+              whileHover={{ scale: 1.1 }}
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 10,
+              }}
+            >
+              <LogOut className="h-5 w-5 transition-all duration-300 group-hover:text-red-700 dark:group-hover:text-red-300" />
+            </motion.div>
+            <span className="font-medium transition-all duration-300 relative z-10">
+              {t("nav.logout") || "Logout"}
+            </span>
+          </motion.button>
+
+          {/* System Status */}
           <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
             <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
               <Icon name="Settings" className="h-4 w-4 text-white" />

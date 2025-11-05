@@ -1,8 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../../stores/languageStore";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import {
+  fetchUnitById,
+  fetchUnitPayments,
+  clearError,
+  clearCurrentUnit,
+} from "../../../store/slices/unitsSlice";
 import {
   ArrowLeft,
   Edit,
@@ -17,7 +24,6 @@ import {
   Bed,
   Bath,
   Square,
-  Car,
   Building,
   CheckCircle,
   Clock,
@@ -26,47 +32,59 @@ import {
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import ReservationForm from "../../../components/manger form/ReservationForm";
+import toast from "react-hot-toast";
+import { UnitForm } from "../../../components/manger form";
 
 const UnitDetail = () => {
   const { id } = useParams();
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { currentUnit, unitPayments, isLoading, error } = useAppSelector(
+    (state) => state.units
+  );
+
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showReservationForm, setShowReservationForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
-  // Mock data - in real app, fetch by ID
-  const unit = {
-    id: 1,
-    number: "A-101",
-    type: "apartment",
-    status: "occupied",
-    rent: 1200,
-    tenant: {
-      name: "John Smith",
-      email: "john.smith@email.com",
-      phone: "+1 234 567 8900",
-      leaseStart: "2024-01-01",
-      leaseEnd: "2024-12-31",
-    },
-    details: {
-      bedrooms: 2,
-      bathrooms: 2,
-      area: "850 sq ft",
-      floor: "1st Floor",
-      balcony: true,
-      parking: true,
-      furnished: "Semi-furnished",
-    },
-    images: [
-      "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=800&h=600",
-      "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800&h=600",
-      "https://images.pexels.com/photos/1918291/pexels-photo-1918291.jpeg?auto=compress&cs=tinysrgb&w=800&h=600",
-    ],
-    paymentHistory: [
-      { date: "2024-03-01", amount: 1200, status: "paid" },
-      { date: "2024-02-01", amount: 1200, status: "paid" },
-      { date: "2024-01-01", amount: 1200, status: "pending" },
-    ],
+  // Fetch unit data on mount
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchUnitById(id));
+      dispatch(fetchUnitPayments(id));
+    }
+
+    // Clear unit data when leaving
+    return () => {
+      dispatch(clearCurrentUnit());
+    };
+  }, [id, dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  const handleEditUnit = () => {
+    setShowEditForm(true);
+  };
+
+  const handleCloseEditForm = () => {
+    setShowEditForm(false);
+  };
+
+  const handleSaveUnit = async (unitData) => {
+    try {
+      setShowEditForm(false);
+      // Refresh unit data
+      dispatch(fetchUnitById(id));
+    } catch (err) {
+      // Error handled by UnitForm
+    }
   };
 
   // Function to get localized unit type
@@ -110,14 +128,162 @@ const UnitDetail = () => {
     setShowReservationForm(false);
   };
 
-  const handleSaveReservation = (reservationData) => {
-    console.log("Saving reservation:", reservationData);
-    setShowReservationForm(false);
+  const handleSaveReservation = async (reservationData) => {
+    try {
+      if (reservationData?.deleted) {
+        // Rent was deleted
+        toast.success(
+          direction === "rtl"
+            ? "تم حذف الإيجار بنجاح"
+            : "Rent deleted successfully"
+        );
+      } else if (reservationData) {
+        // Rent was created/updated successfully
+        toast.success(
+          direction === "rtl"
+            ? "تم إنشاء الإيجار بنجاح"
+            : "Rent created successfully"
+        );
+        // Refresh unit data to get updated rent_payment_history
+        if (id) {
+          await dispatch(fetchUnitById(id));
+          await dispatch(fetchUnitPayments(id));
+        }
+      }
+      setShowReservationForm(false);
+    } catch (err) {
+      console.error("Error handling reservation save:", err);
+    }
   };
+
+  // Get payments from both sources: unitPayments (Redux) and rent_payment_history (from unit data)
+  const unitPaymentsList = Array.isArray(unitPayments)
+    ? unitPayments
+    : unitPayments?.results || unitPayments?.data || [];
+
+  const rentPaymentHistory = currentUnit?.rent_payment_history || [];
+
+  // Combine both payment sources and format them consistently
+  const payments = React.useMemo(() => {
+    const allPayments = [];
+
+    // Add rent_payment_history payments
+    if (rentPaymentHistory && Array.isArray(rentPaymentHistory)) {
+      rentPaymentHistory.forEach((payment, index) => {
+        allPayments.push({
+          id: payment.id || `rent_${payment.date}_${payment.amount}_${index}`,
+          amount: parseFloat(payment.amount || 0),
+          date: payment.date,
+          status: payment.status || "pending",
+          type: "rent",
+        });
+      });
+    }
+
+    // Add unitPayments (occasional payments)
+    if (unitPaymentsList && Array.isArray(unitPaymentsList)) {
+      unitPaymentsList.forEach((payment, index) => {
+        allPayments.push({
+          id:
+            payment.id ||
+            `occasional_${payment.id || index}_${
+              payment.payment_date || payment.date || ""
+            }`,
+          amount: parseFloat(payment.amount || 0),
+          date: payment.payment_date || payment.date,
+          status: payment.status || "paid",
+          type: "occasional",
+          category: payment.category,
+          payment_method: payment.payment_method || payment.method,
+        });
+      });
+    }
+
+    // Remove duplicates based on unique id
+    const uniquePayments = [];
+    const seenIds = new Set();
+    allPayments.forEach((payment) => {
+      if (!seenIds.has(payment.id)) {
+        seenIds.add(payment.id);
+        uniquePayments.push(payment);
+      }
+    });
+
+    // Sort by date (newest first)
+    return uniquePayments.sort((a, b) => {
+      const dateA = new Date(a.date || 0);
+      const dateB = new Date(b.date || 0);
+      return dateB - dateA;
+    });
+  }, [rentPaymentHistory, unitPaymentsList]);
+
+  // Loading state
+  if (isLoading && !currentUnit) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
+            {t("common.loading")}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (!currentUnit) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">
+            {t("units.unitNotFound")}
+          </p>
+          <Button onClick={() => navigate("/units")}>
+            {t("units.backToUnits")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const unit = currentUnit;
+  const images = unit.images || [];
+
+  // Extract data from details object or use direct properties
+  const unitType = unit.details?.type || unit.type || "";
+  const unitBedrooms = unit.details?.bedrooms || unit.bedrooms;
+  const unitBathrooms = unit.details?.bathrooms || unit.bathrooms;
+  const unitArea = unit.details?.area || unit.area;
+
+  // Get city and district names (they might be IDs, so we'll display them as is for now)
+  // If API provides city_name and district_name, use those, otherwise use the IDs
+  const cityName =
+    unit.city_name ||
+    (typeof unit.city === "object" ? unit.city?.name : unit.city) ||
+    "";
+  const districtName =
+    unit.district_name ||
+    (typeof unit.district === "object" ? unit.district?.name : unit.district) ||
+    "";
+
+  // Get payment summaries
+  const paymentsSummary = unit.payments_summary || {};
+  const unitPaymentSummary = unit.unit_payment_summary || {};
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="p-4 md:p-6 space-y-6">
+        {/* Back button */}
+        <Link to="/units">
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft
+              className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
+            />
+            {t("units.backToUnits")}
+          </Button>
+        </Link>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -128,15 +294,16 @@ const UnitDetail = () => {
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-                  {t("units.unitDetails")} {unit.number}
+                  {t("units.unitDetails")} {unit.name}
                 </h1>
                 <div className="flex flex-wrap items-center gap-3 mt-2">
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                      statusColors[unit.status]
+                      statusColors[unit.status?.toLowerCase()] ||
+                      statusColors.available
                     }`}
                   >
-                    {t(`units.${unit.status}`)}
+                    {t(`units.${unit.status?.toLowerCase()}`) || unit.status}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400 capitalize flex items-center">
                     <Building
@@ -144,16 +311,18 @@ const UnitDetail = () => {
                         direction === "rtl" ? "ml-1" : "mr-1"
                       }`}
                     />
-                    {getLocalizedUnitType(unit.type)}
+                    {getLocalizedUnitType(unitType)}
                   </span>
-                  <span className="text-gray-500 dark:text-gray-400 flex items-center">
-                    <DollarSign
-                      className={`h-4 w-4 ${
-                        direction === "rtl" ? "ml-1" : "mr-1"
-                      }`}
-                    />
-                    ${unit.rent} {t("units.perMonth")}
-                  </span>
+                  {unit.price_per_day && (
+                    <span className="text-gray-500 dark:text-gray-400 flex items-center">
+                      <DollarSign
+                        className={`h-4 w-4 ${
+                          direction === "rtl" ? "ml-1" : "mr-1"
+                        }`}
+                      />
+                      ${unit.price_per_day} {t("units.perDay")}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -166,9 +335,12 @@ const UnitDetail = () => {
                 <Calendar
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
-                {direction === "rtl" ? "حجز جديد" : "New Reservation"}
+                {t("units.newReservation")}
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md flex-1 sm:flex-none">
+              <Button
+                onClick={handleEditUnit}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md flex-1 sm:flex-none"
+              >
                 <Edit
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
@@ -182,72 +354,108 @@ const UnitDetail = () => {
           {/* Main Content */}
           <div className="xl:col-span-2 space-y-6">
             {/* Image Gallery */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="p-0 overflow-hidden">
-                <div className="relative">
-                  <img
-                    src={unit.images[selectedImageIndex]}
-                    alt={`Unit ${unit.number}`}
-                    className="w-full h-64 md:h-80 object-cover"
-                  />
-                  <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm flex items-center">
-                    <Camera className="h-4 w-4 mr-1" />
-                    {selectedImageIndex + 1} / {unit.images.length}
+            {images.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card className="p-0 overflow-hidden">
+                  <div className="relative">
+                    <img
+                      src={images[selectedImageIndex]}
+                      alt={`Unit ${unit.name}`}
+                      className="w-full h-64 md:h-80 object-cover"
+                    />
+                    <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm flex items-center">
+                      <Camera className="h-4 w-4 mr-1" />
+                      {selectedImageIndex + 1} / {images.length}
+                    </div>
                   </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex space-x-2 rtl:space-x-reverse">
-                    {unit.images.map((image, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setSelectedImageIndex(index)}
-                        className={`relative overflow-hidden rounded-lg border-2 transition-all ${
-                          selectedImageIndex === index
-                            ? "border-blue-500 ring-2 ring-blue-200"
-                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <img
-                          src={image}
-                          alt={`Thumbnail ${index + 1}`}
-                          className="w-16 h-16 object-cover"
-                        />
-                      </button>
-                    ))}
+                  <div className="p-4">
+                    <div className="flex space-x-2 rtl:space-x-reverse">
+                      {images.map((image, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedImageIndex(index)}
+                          className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+                            selectedImageIndex === index
+                              ? "border-blue-500 ring-2 ring-blue-200"
+                              : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          <img
+                            src={image}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-16 h-16 object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </motion.div>
+                </Card>
+              </motion.div>
+            )}
 
             {/* Map Location */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              <Card className="p-0 overflow-hidden">
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <MapPin
-                      className={`h-5 w-5 ${
-                        direction === "rtl" ? "ml-2" : "mr-2"
-                      } text-red-600`}
-                    />
-                    {t("units.location")}
-                  </h3>
-                </div>
-                <div className="h-64 bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500">
-                  {/* Placeholder for real map implementation */}
-                  {direction === "rtl"
-                    ? "خريطة الموقع (لاحقاً)"
-                    : "Map location (to integrate)"}
-                </div>
-              </Card>
-            </motion.div>
+            {unit.location_url && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
+                <Card className="p-0 overflow-hidden">
+                  <div className="p-6 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <MapPin
+                        className={`h-5 w-5 ${
+                          direction === "rtl" ? "ml-2" : "mr-2"
+                        } text-red-600`}
+                      />
+                      {t("units.location")}
+                    </h3>
+                    <div className="space-y-3">
+                      {unit.location_text && (
+                        <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <p className="text-gray-700 dark:text-gray-300 font-medium">
+                            {unit.location_text}
+                          </p>
+                        </div>
+                      )}
+                      {(districtName || cityName) && (
+                        <div className="flex flex-wrap gap-2">
+                          {cityName && (
+                            <span className="px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-sm font-medium">
+                              🌍 {cityName}
+                            </span>
+                          )}
+                          {districtName && (
+                            <span className="px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full text-sm font-medium">
+                              📍 {districtName}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-6 bg-gray-50 dark:bg-gray-700/50">
+                    <a
+                      href={unit.location_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg"
+                    >
+                      <MapPin
+                        className={`h-5 w-5 ${
+                          direction === "rtl" ? "ml-2" : "mr-2"
+                        }`}
+                      />
+                      {t("units.viewOnMap")}
+                    </a>
+                  </div>
+                </Card>
+              </motion.div>
+            )}
 
             {/* Unit Details */}
             <motion.div
@@ -264,7 +472,7 @@ const UnitDetail = () => {
                   />
                   {t("units.unitDetails")}
                 </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <Building className="h-5 w-5 text-purple-600" />
                     <div>
@@ -272,82 +480,77 @@ const UnitDetail = () => {
                         {t("units.type")}
                       </span>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {getLocalizedUnitType(unit.type)}
+                        {getLocalizedUnitType(unitType)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <Bed className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                        {t("units.bedrooms")}
-                      </span>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {unit.details.bedrooms}
-                      </p>
+                  {unitBedrooms && (
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <Bed className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                          {t("units.bedrooms")}
+                        </span>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {unitBedrooms}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <Bath className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                        {t("units.bathrooms")}
-                      </span>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {unit.details.bathrooms}
-                      </p>
+                  )}
+                  {unitBathrooms && (
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <Bath className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                          {t("units.bathrooms")}
+                        </span>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {unitBathrooms}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <Square className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                        {t("units.area")}
-                      </span>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {unit.details.area}
-                      </p>
+                  )}
+                  {unitArea && (
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <Square className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                          {t("units.area")}
+                        </span>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {unitArea} {direction === "rtl" ? "م²" : "m²"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <Building className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                        {t("units.floor")}
-                      </span>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {unit.details.floor}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex flex-wrap gap-3">
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                      <span className="text-gray-600 dark:text-gray-400 text-sm">
-                        {t("units.furnished")}:
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {unit.details.furnished}
-                      </span>
+                {(cityName || districtName) && (
+                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-wrap gap-3">
+                      {cityName && (
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          <span className="text-gray-600 dark:text-gray-400 text-sm">
+                            {t("units.city")}:
+                          </span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {cityName}
+                          </span>
+                        </div>
+                      )}
+                      {districtName && (
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          <span className="text-gray-600 dark:text-gray-400 text-sm">
+                            {t("units.district")}:
+                          </span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {districtName}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {unit.details.balcony && (
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 text-sm rounded-full border border-emerald-200 dark:border-emerald-800">
-                        {t("units.balcony")}
-                      </span>
-                    )}
-                    {unit.details.parking && (
-                      <span className="px-3 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 text-sm rounded-full border border-blue-200 dark:border-blue-800 flex items-center">
-                        <Car className="h-3 w-3 mr-1" />
-                        {t("units.parking")}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                )}
               </Card>
             </motion.div>
 
@@ -366,68 +569,127 @@ const UnitDetail = () => {
                   />
                   {t("units.paymentHistory")}
                 </h3>
-                <div className="overflow-x-auto">
-                  <table
-                    className={`w-full ${
-                      direction === "rtl" ? "flex-start" : ""
-                    }`}
-                  >
-                    <thead className="bg-gray-50 dark:bg-gray-700/50">
-                      <tr className="border-b border-gray-200 dark:border-gray-700 ">
-                        <th
-                          className={`${
-                            direction === "rtl" ? "text-left" : "text-left"
-                          } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
-                        >
-                          {t("units.date")}
-                        </th>
-                        <th
-                          className={`${
-                            direction === "rtl" ? "text-left" : "text-left"
-                          } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
-                        >
-                          {t("units.amount")}
-                        </th>
-                        <th
-                          className={`${
-                            direction === "rtl" ? "text-left" : "text-left"
-                          } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
-                        >
-                          {t("units.status")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {unit.paymentHistory.map((payment, index) => (
-                        <tr
-                          key={index}
-                          className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <td className="py-4 px-4 text-gray-900 dark:text-white font-medium">
-                            {new Date(payment.date).toLocaleDateString()}
-                          </td>
-                          <td className="py-4 px-4 text-gray-900 dark:text-white font-semibold">
-                            ${payment.amount.toLocaleString()}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                                paymentStatusColors[payment.status]
-                              } flex items-center w-fit`}
-                            >
-                              {payment.status === "paid" ? (
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                              ) : (
-                                <Clock className="h-3 w-3 mr-1" />
-                              )}
-                              {t(`units.${payment.status}`)}
-                            </span>
-                          </td>
+                {payments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table
+                      className={`w-full ${
+                        direction === "rtl" ? "flex-start" : ""
+                      }`}
+                    >
+                      <thead className="bg-gray-50 dark:bg-gray-700/50">
+                        <tr className="border-b border-gray-200 dark:border-gray-700 ">
+                          <th
+                            className={`${
+                              direction === "rtl" ? "text-left" : "text-left"
+                            } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
+                          >
+                            {t("units.date")}
+                          </th>
+                          <th
+                            className={`${
+                              direction === "rtl" ? "text-left" : "text-left"
+                            } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
+                          >
+                            {t("units.amount")}
+                          </th>
+                          <th
+                            className={`${
+                              direction === "rtl" ? "text-left" : "text-left"
+                            } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
+                          >
+                            {t("units.status")}
+                          </th>
+                          <th
+                            className={`${
+                              direction === "rtl" ? "text-left" : "text-left"
+                            } py-3 px-4 text-gray-600 dark:text-gray-400 font-medium`}
+                          >
+                            {direction === "rtl" ? "النوع" : "Type"}
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {payments.map((payment, index) => (
+                          <tr
+                            key={payment.id || index}
+                            className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          >
+                            <td className="py-4 px-4 text-gray-900 dark:text-white font-medium">
+                              {payment.date
+                                ? new Date(payment.date).toLocaleDateString(
+                                    direction === "rtl" ? "ar-EG" : "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    }
+                                  )
+                                : "-"}
+                            </td>
+                            <td className="py-4 px-4 text-gray-900 dark:text-white font-semibold">
+                              $
+                              {payment.amount
+                                ? payment.amount.toLocaleString("en-US")
+                                : "0"}
+                            </td>
+                            <td className="py-4 px-4">
+                              <span
+                                className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                                  paymentStatusColors[payment.status] ||
+                                  paymentStatusColors.paid
+                                } flex items-center w-fit`}
+                              >
+                                {payment.status === "paid" ? (
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <Clock className="h-3 w-3 mr-1" />
+                                )}
+                                {payment.status === "paid"
+                                  ? direction === "rtl"
+                                    ? "مدفوع"
+                                    : "Paid"
+                                  : payment.status === "pending"
+                                  ? direction === "rtl"
+                                    ? "معلق"
+                                    : "Pending"
+                                  : payment.status}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  payment.type === "rent"
+                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                                    : "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300"
+                                }`}
+                              >
+                                {payment.type === "rent"
+                                  ? direction === "rtl"
+                                    ? "إيجار"
+                                    : "Rent"
+                                  : payment.category
+                                  ? payment.category.charAt(0).toUpperCase() +
+                                    payment.category.slice(1)
+                                  : direction === "rtl"
+                                  ? "عرضي"
+                                  : "Occasional"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="inline-flex p-4 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
+                      <DollarSign className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {t("common.noData")}
+                    </p>
+                  </div>
+                )}
               </Card>
             </motion.div>
           </div>
@@ -435,41 +697,43 @@ const UnitDetail = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Rent Info */}
-            <motion.div
-              initial={{ opacity: 0, x: direction === "rtl" ? -20 : 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
-                <div className="mb-4">
-                  <h3
-                    className={`text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-between ${
-                      direction === "rtl" ? "flex-row" : ""
-                    }`}
-                  >
-                    <span className="flex items-center">
-                      <DollarSign
-                        className={`h-4 w-4 ${
-                          direction === "rtl" ? "ml-2" : "mr-2"
-                        } text-green-600`}
-                      />
-                      {t("units.rentalInformation")}
-                    </span>
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                        ${unit.rent.toLocaleString()}
+            {unit.price_per_day && (
+              <motion.div
+                initial={{ opacity: 0, x: direction === "rtl" ? -20 : 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+                  <div className="mb-4">
+                    <h3
+                      className={`text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-between ${
+                        direction === "rtl" ? "flex-row" : ""
+                      }`}
+                    >
+                      <span className="flex items-center">
+                        <DollarSign
+                          className={`h-4 w-4 ${
+                            direction === "rtl" ? "ml-2" : "mr-2"
+                          } text-green-600`}
+                        />
+                        {t("units.rentalInformation")}
                       </span>
-                      <span className="text-gray-500 text-sm">
-                        {t("units.perMonth")}
-                      </span>
-                    </div>
-                  </h3>
-                </div>
-              </Card>
-            </motion.div>
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          ${parseFloat(unit.price_per_day).toLocaleString()}
+                        </span>
+                        <span className="text-gray-500 text-sm">
+                          {t("units.perDay")}
+                        </span>
+                      </div>
+                    </h3>
+                  </div>
+                </Card>
+              </motion.div>
+            )}
 
             {/* Current Tenant */}
-            {unit.tenant && (
+            {unit.current_tenant_name && (
               <motion.div
                 initial={{ opacity: 0, x: direction === "rtl" ? -20 : 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -494,33 +758,7 @@ const UnitDetail = () => {
                           {t("units.name")}
                         </span>
                         <p className="font-semibold text-gray-900 dark:text-white">
-                          {unit.tenant.name}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                        <Mail className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                          {t("units.email")}
-                        </span>
-                        <p className="text-gray-900 dark:text-white text-sm">
-                          {unit.tenant.email}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                        <Phone className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                          {t("units.phone")}
-                        </span>
-                        <p className="text-gray-900 dark:text-white text-sm">
-                          {unit.tenant.phone}
+                          {unit.current_tenant_name}
                         </p>
                       </div>
                     </div>
@@ -530,7 +768,7 @@ const UnitDetail = () => {
             )}
 
             {/* Lease Information */}
-            {unit.tenant && (
+            {(unit.lease_start || unit.lease_end) && (
               <motion.div
                 initial={{ opacity: 0, x: direction === "rtl" ? -20 : 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -546,22 +784,26 @@ const UnitDetail = () => {
                     {t("units.leaseInformation")}
                   </h3>
                   <div className="space-y-4">
-                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                        {t("units.startDate")}
-                      </span>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {new Date(unit.tenant.leaseStart).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                      <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                        {t("units.endDate")}
-                      </span>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {new Date(unit.tenant.leaseEnd).toLocaleDateString()}
-                      </p>
-                    </div>
+                    {unit.lease_start && (
+                      <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                          {t("units.startDate")}
+                        </span>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {new Date(unit.lease_start).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {unit.lease_end && (
+                      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                          {t("units.endDate")}
+                        </span>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {new Date(unit.lease_end).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </motion.div>
@@ -634,11 +876,23 @@ const UnitDetail = () => {
       </div>
 
       {/* Reservation Form */}
-      {showReservationForm && (
+      {showReservationForm && currentUnit && (
         <ReservationForm
+          reservation={null}
+          unit={currentUnit.id}
           onSave={handleSaveReservation}
           onCancel={handleCloseReservationForm}
           isEdit={false}
+        />
+      )}
+
+      {/* Unit Edit Form */}
+      {showEditForm && currentUnit && (
+        <UnitForm
+          unit={currentUnit}
+          onSave={handleSaveUnit}
+          onCancel={handleCloseEditForm}
+          isEdit={true}
         />
       )}
     </div>

@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useAuthStore } from "../../stores/authStore";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { loginUser } from "../../store/slices/authSlice";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Card from "../../components/ui/Card";
@@ -13,7 +15,9 @@ import toast from "react-hot-toast";
 
 const LoginPage = () => {
   const { t } = useTranslation();
-  const { login, isLoading } = useAuthStore();
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { isLoading, error } = useAppSelector((state) => state.auth);
   const {
     register,
     handleSubmit,
@@ -23,11 +27,15 @@ const LoginPage = () => {
   } = useForm();
 
   const onSubmit = async (data) => {
-    const result = await login(data.email, data.password);
-    if (result.success) {
-      toast.success(t("auth.welcome"));
-    } else {
-      toast.error(t("auth.invalidCredentials"));
+    try {
+      const result = await dispatch(loginUser({ email: data.email, password: data.password })).unwrap();
+      if (result) {
+        toast.success(t("auth.welcome"));
+        // Redirect to dashboard after successful login
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      toast.error(err || t("auth.invalidCredentials"));
     }
   };
 
@@ -129,7 +137,7 @@ const LoginPage = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() =>
-                  fillCredentials("manager@realestate.com", "manager123")
+                  fillCredentials("admin@crm.com", "123")
                 }
                 className="p-2 bg-white dark:bg-gray-600 rounded-lg cursor-pointer border border-gray-200 dark:border-gray-500 hover:border-primary-300 dark:hover:border-primary-400 transition-all duration-200 hover:shadow-sm"
               >
@@ -137,9 +145,7 @@ const LoginPage = () => {
                   <strong className="text-primary-600 dark:text-primary-400">
                     Manager:
                   </strong>
-                  <span className="ml-1">
-                    manager@realestate.com / manager123
-                  </span>
+                  <span className="ml-1">admin@crm.com/ 123</span>
                 </p>
               </motion.div>
             </div>

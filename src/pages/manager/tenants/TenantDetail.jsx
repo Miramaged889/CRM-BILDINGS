@@ -1,8 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../../stores/languageStore";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import {
+  fetchTenantById,
+  fetchTenants,
+} from "../../../store/slices/tenantsSlice";
+import {
+  fetchReviews,
+  updateReview,
+  deleteReview,
+  clearError,
+} from "../../../store/slices/reviewsSlice";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Edit,
@@ -36,12 +48,20 @@ import Button from "../../../components/ui/Button";
 import Avatar from "../../../components/ui/Avatar";
 import { LeaseForm, LeaseViewModal } from "../../../components/manger form";
 import { ReviewForm, ReviewViewModal } from "../../../components/manger form";
+import { getRents, deleteRent } from "../../../services/api";
 
 const TenantDetail = () => {
   const { id } = useParams();
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
+  const dispatch = useAppDispatch();
+  const { error: reviewsError, reviews: reviewsFromStore } = useAppSelector(
+    (state) => state.reviews
+  );
   const [activeTab, setActiveTab] = useState("overview");
+  const { currentTenant, isLoading, error, tenants } = useAppSelector(
+    (state) => state.tenants
+  );
 
   // Form and modal states
   const [showLeaseForm, setShowLeaseForm] = useState(false);
@@ -53,213 +73,135 @@ const TenantDetail = () => {
   const [editingLease, setEditingLease] = useState(null);
   const [editingReview, setEditingReview] = useState(null);
 
-  // Mock data - in real app, fetch by ID
-  const getTenantData = (tenantId) => {
-    // Sample data for different rental types
-    const tenantData = {
-      1: {
-        id: 1,
-        name: "John Smith",
-        email: "john.smith@email.com",
-        phone: "+1 234 567 8900",
-        unit: "A-101",
-        leaseStart: "2024-01-01",
-        leaseEnd: "2024-12-31",
-        status: "active",
-        rentalType: "monthly",
-        rent: 1200,
-        deposit: 2400,
-        avatar:
-          "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-      },
-      7: {
-        id: 7,
-        name: "Ahmed Hassan",
-        email: "ahmed.hassan@email.com",
-        phone: "+1 234 567 8906",
-        unit: "D-401",
-        leaseStart: "2024-01-15",
-        leaseEnd: "2024-01-20",
-        status: "active",
-        rentalType: "daily",
-        rent: 80,
-        deposit: 200,
-        avatar:
-          "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150",
-      },
+  // State for rents from API
+  const [rents, setRents] = useState([]);
+  const [loadingRents, setLoadingRents] = useState(false);
+
+  // Fetch tenant by ID from API/Redux
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchTenantById(id));
+      // Also fetch reviews for this tenant if reviews endpoint supports filtering
+      dispatch(fetchReviews({ tenant: id }));
+    }
+  }, [id, dispatch]);
+
+  // Fetch rents for this tenant from API
+  useEffect(() => {
+    const fetchTenantRents = async () => {
+      if (!id) return;
+
+      setLoadingRents(true);
+      try {
+        const response = await getRents({ tenant: id });
+        // Handle paginated response with results array
+        const rentsData = response?.results || response?.data || response || [];
+        setRents(Array.isArray(rentsData) ? rentsData : []);
+      } catch (error) {
+        console.error("Error fetching rents:", error);
+        setRents([]);
+        toast.error(
+          direction === "rtl" ? "فشل تحميل الإيجارات" : "Failed to load rents"
+        );
+      } finally {
+        setLoadingRents(false);
+      }
     };
 
-    return tenantData[tenantId] || tenantData[1];
-  };
+    fetchTenantRents();
+  }, [id, direction]);
 
-  const baseTenant = getTenantData(parseInt(id));
-  const tenant = {
-    ...baseTenant,
-    emergencyContact: {
-      name: "Jane Smith",
-      phone: "+1 234 567 8901",
-      relation: "Spouse",
+  // Fetch all tenants to map tenant IDs to names in reviews
+  useEffect(() => {
+    if (!tenants || tenants.length === 0) {
+      dispatch(fetchTenants({}));
+    }
+  }, [dispatch, tenants]);
+
+  // Helper function to get tenant name by ID
+  const getTenantNameById = React.useCallback(
+    (tenantId) => {
+      if (!tenantId) return "-";
+      const foundTenant = tenants?.find((t) => t.id === tenantId);
+      return (
+        foundTenant?.full_name || foundTenant?.name || `Tenant #${tenantId}`
+      );
     },
-    paymentHistory:
-      baseTenant.rentalType === "daily"
-        ? [
-            {
-              id: 1,
-              date: "2024-01-15",
-              amount: 80,
-              status: "paid",
-              method: "Cash",
-              period: "Day 1",
-            },
-            {
-              id: 2,
-              date: "2024-01-16",
-              amount: 80,
-              status: "paid",
-              method: "Cash",
-              period: "Day 2",
-            },
-            {
-              id: 3,
-              date: "2024-01-17",
-              amount: 80,
-              status: "pending",
-              method: "Cash",
-              period: "Day 3",
-            },
-          ]
-        : [
-            {
-              id: 1,
-              date: "2024-01-01",
-              amount: 1200,
-              status: "paid",
-              method: "Bank Transfer",
-              period: "January 2024",
-            },
-            {
-              id: 2,
-              date: "2024-02-01",
-              amount: 1200,
-              status: "paid",
-              method: "Bank Transfer",
-              period: "February 2024",
-            },
-            {
-              id: 3,
-              date: "2024-03-01",
-              amount: 1200,
-              status: "pending",
-              method: "Bank Transfer",
-              period: "March 2024",
-            },
-          ],
-    maintenanceRequests: [
-      {
-        id: 1,
-        title: "Kitchen faucet repair",
-        date: "2024-01-15",
-        status: "completed",
-        priority: "medium",
-      },
-      {
-        id: 2,
-        title: "AC unit maintenance",
-        date: "2024-02-10",
-        status: "in_progress",
-        priority: "high",
-      },
-    ],
-    recentActivity: [
-      {
-        id: 1,
-        action: "Payment received",
-        date: "2024-02-01",
-        type: "payment",
-      },
-      {
-        id: 2,
-        action: "Maintenance request submitted",
-        date: "2024-01-15",
-        type: "maintenance",
-      },
-      {
-        id: 3,
-        action: "Lease renewal reminder sent",
-        date: "2024-01-10",
-        type: "lease",
-      },
-    ],
-    reviews: [
-      {
-        id: 1,
-        rating: 5,
-        comment:
-          "Great tenant, always pays on time and maintains the unit well. Very respectful and communicative.",
-        date: "2024-06-01",
-        status: "positive",
-        category: "payment",
-      },
-      {
-        id: 2,
-        rating: 4,
-        comment:
-          "Keeps the unit clean and reports issues promptly. Good communication.",
-        date: "2024-07-15",
-        status: "positive",
-        category: "maintenance",
-      },
-    ],
-    leases:
-      baseTenant.rentalType === "daily"
-        ? [
-            {
-              id: 1,
-              unit: baseTenant.unit,
-              startDate: baseTenant.leaseStart,
-              endDate: baseTenant.leaseEnd,
-              rent: baseTenant.rent,
-              deposit: baseTenant.deposit,
-              status: "active",
-              rentalType: "daily",
-              type: "short-term",
-              utilities: "All included",
-              petPolicy: "No pets allowed",
-              parking: "Temporary parking",
-            },
-          ]
-        : [
-            {
-              id: 1,
-              unit: baseTenant.unit,
-              startDate: baseTenant.leaseStart,
-              endDate: baseTenant.leaseEnd,
-              rent: baseTenant.rent,
-              deposit: baseTenant.deposit,
-              status: "active",
-              rentalType: "monthly",
-              type: "apartment",
-              utilities: "Water, Electricity",
-              petPolicy: "No pets allowed",
-              parking: "1 space included",
-            },
-            {
-              id: 2,
-              unit: baseTenant.unit,
-              startDate: "2023-01-01",
-              endDate: "2023-12-31",
-              rent: baseTenant.rent - 100,
-              deposit: baseTenant.deposit - 200,
-              status: "expired",
-              rentalType: "monthly",
-              type: "apartment",
-              utilities: "Water, Electricity",
-              petPolicy: "No pets allowed",
-              parking: "1 space included",
-            },
-          ],
-    rentalType: baseTenant.rentalType,
-  };
+    [tenants]
+  );
+
+  // Map API tenant shape to UI-friendly fields with fallbacks
+  const tenant = React.useMemo(() => {
+    const t = currentTenant || {};
+    const rentInfo = t.rent_info || {};
+
+    // Get reviews from Redux store (primary source - fresh from API)
+    // Ensure reviewsFromStore is an array (it comes from paginated API response with results)
+    const storeReviews = Array.isArray(reviewsFromStore)
+      ? reviewsFromStore.filter((r) => r && r.id) // Filter out invalid reviews
+      : [];
+
+    // Get reviews from tenant data (fallback)
+    const tenantReviews = Array.isArray(t.reviews)
+      ? t.reviews.filter((r) => r && r.id) // Filter out invalid reviews
+      : [];
+
+    // Use store reviews as primary source, add tenant reviews only if they don't exist in store
+    // This prevents duplicates after delete
+    const reviewsMap = new Map();
+
+    // Add store reviews first (they are the source of truth)
+    storeReviews.forEach((review) => {
+      if (review && review.id) {
+        reviewsMap.set(review.id, review);
+      }
+    });
+
+    // Add tenant reviews only if they don't exist in store
+    tenantReviews.forEach((review) => {
+      if (review && review.id && !reviewsMap.has(review.id)) {
+        reviewsMap.set(review.id, review);
+      }
+    });
+
+    // Convert map to array
+    const allReviews = Array.from(reviewsMap.values());
+
+    // Map reviews with tenant names based on schema: { id, tenant, comment, rate, date }
+    const mappedReviews = allReviews
+      .filter((review) => review && review.id) // Final safety check
+      .map((review) => {
+        const tenantId =
+          typeof review.tenant === "object" ? review.tenant.id : review.tenant;
+        return {
+          id: review.id,
+          tenant: tenantId,
+          tenantName: getTenantNameById(tenantId),
+          comment: review.comment || "",
+          rate: review.rate || review.rating || "0.0",
+          date: review.date || review.created_at || new Date().toISOString(),
+        };
+      });
+
+    return {
+      id: t.id,
+      name: t.full_name || t.name || "-",
+      email: t.email || "-",
+      phone: t.phone || "-",
+      avatar: t.avatar || undefined,
+      status: (t.status || "active").toLowerCase(),
+      unit: rentInfo.unit_name || rentInfo.unit || t.unit_name || "-",
+      leaseStart: rentInfo.rent_start || t.lease_start || null,
+      leaseEnd: rentInfo.rent_end || t.lease_end || null,
+      rentalType: (rentInfo.rental_type || "daily").toLowerCase(),
+      rent: parseFloat(rentInfo.total_amount) || t.rent || 0,
+      paymentHistory: t.payment_history || [],
+      maintenanceRequests: t.maintenance_requests || [],
+      recentActivity: t.recent_activity || [],
+      reviews: mappedReviews,
+      leases: rents, // Use rents from API instead of t.leases
+    };
+  }, [currentTenant, getTenantNameById, reviewsFromStore, id, rents]);
 
   const statusColors = {
     active:
@@ -295,11 +237,6 @@ const TenantDetail = () => {
     { id: "overview", label: t("tenants.personalInfo"), icon: User },
     { id: "lease", label: t("tenants.leaseInfo"), icon: FileText },
     { id: "payments", label: t("tenants.paymentHistory"), icon: CreditCard },
-    {
-      id: "maintenance",
-      label: t("tenants.maintenanceRequests"),
-      icon: Shield,
-    },
     { id: "reviews", label: t("tenants.reviews"), icon: MessageSquare },
     { id: "leases", label: t("tenants.leases"), icon: FileText },
   ];
@@ -320,10 +257,47 @@ const TenantDetail = () => {
     setShowLeaseViewModal(true);
   };
 
-  const handleSaveLease = (leaseData) => {
-    console.log("Saving lease:", leaseData);
-    setShowLeaseForm(false);
-    setEditingLease(null);
+  const handleSaveLease = async (leaseData) => {
+    try {
+      if (leaseData?.deleted && leaseData?.id) {
+        // Delete rent via API
+        await deleteRent(leaseData.id);
+        // Refresh rents after deletion
+        if (id) {
+          const response = await getRents({ tenant: id });
+          const rentsData =
+            response?.results || response?.data || response || [];
+          setRents(Array.isArray(rentsData) ? rentsData : []);
+        }
+        toast.success(
+          direction === "rtl"
+            ? "تم حذف الإيجار بنجاح"
+            : "Rent deleted successfully"
+        );
+        setShowLeaseForm(false);
+        setEditingLease(null);
+      } else {
+        // Refresh rents after create/update (create/update is handled by LeaseForm)
+        if (id) {
+          const response = await getRents({ tenant: id });
+          const rentsData =
+            response?.results || response?.data || response || [];
+          setRents(Array.isArray(rentsData) ? rentsData : []);
+        }
+        toast.success(
+          direction === "rtl"
+            ? "تم حفظ الإيجار بنجاح"
+            : "Rent saved successfully"
+        );
+        setShowLeaseForm(false);
+        setEditingLease(null);
+      }
+    } catch (error) {
+      console.error("Error saving lease:", error);
+      toast.error(
+        direction === "rtl" ? "فشل حفظ الإيجار" : "Failed to save rent"
+      );
+    }
   };
 
   const handleCloseLeaseForm = () => {
@@ -351,10 +325,91 @@ const TenantDetail = () => {
     setShowReviewViewModal(true);
   };
 
-  const handleSaveReview = (reviewData) => {
-    console.log("Saving review:", reviewData);
-    setShowReviewForm(false);
-    setEditingReview(null);
+  // Handle reviews error
+  useEffect(() => {
+    if (reviewsError) {
+      toast.error(reviewsError);
+      dispatch(clearError());
+    }
+  }, [reviewsError, dispatch]);
+
+  const handleSaveReview = async (reviewData) => {
+    try {
+      if (editingReview && editingReview.id) {
+        // Update review - map form data to API format
+        await dispatch(
+          updateReview({
+            id: editingReview.id,
+            data: {
+              rate: reviewData.rate || reviewData.rating,
+              comment: reviewData.comment,
+            },
+          })
+        ).unwrap();
+        toast.success(
+          direction === "rtl"
+            ? "تم تحديث المراجعة بنجاح"
+            : "Review updated successfully"
+        );
+      } else {
+        // Create review - data is already sent by ReviewForm via createReview
+        toast.success(
+          direction === "rtl"
+            ? "تم إضافة المراجعة بنجاح"
+            : "Review added successfully"
+        );
+      }
+
+      // Refresh reviews after save
+      if (id) {
+        dispatch(fetchReviews({ tenant: id }));
+      }
+
+      setShowReviewForm(false);
+      setEditingReview(null);
+    } catch (error) {
+      const errorMessage = error?.message || error || "Failed to save review";
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!reviewId) {
+      toast.error(
+        direction === "rtl"
+          ? "لا يمكن حذف المراجعة: المعرف غير موجود"
+          : "Cannot delete review: ID is missing"
+      );
+      return;
+    }
+
+    if (
+      window.confirm(
+        direction === "rtl"
+          ? "هل أنت متأكد من حذف هذه المراجعة؟"
+          : "Are you sure you want to delete this review?"
+      )
+    ) {
+      try {
+        await dispatch(deleteReview(reviewId)).unwrap();
+        toast.success(
+          direction === "rtl"
+            ? "تم حذف المراجعة بنجاح"
+            : "Review deleted successfully"
+        );
+        // Refresh reviews after deletion - wait a bit to ensure API processed the delete
+        if (id) {
+          // Small delay to ensure backend processed the delete
+          setTimeout(() => {
+            dispatch(fetchReviews({ tenant: id }));
+          }, 100);
+        }
+      } catch (error) {
+        const errorMessage =
+          error?.message || error || "Failed to delete review";
+        toast.error(errorMessage);
+      }
+    }
   };
 
   const handleCloseReviewForm = () => {
@@ -375,6 +430,16 @@ const TenantDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="p-4 md:p-6 space-y-6">
+        {isLoading && (
+          <div className="text-center text-gray-600 dark:text-gray-300">
+            Loading...
+          </div>
+        )}
+        {error && (
+          <div className="text-center text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -417,8 +482,7 @@ const TenantDetail = () => {
                           direction === "rtl" ? "ml-1" : "mr-1"
                         }`}
                       />
-                      ${tenant.rent}/
-                      {tenant.rentalType === "daily" ? "day" : "month"}
+                      {tenant.rent}
                     </span>
                   </div>
                 </div>
@@ -499,7 +563,7 @@ const TenantDetail = () => {
                               }`}
                             >
                               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                <User className="h-5 w-5 text-blue-600" />
+                                <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                               </div>
                               <div>
                                 <span className="text-gray-600 dark:text-gray-400 text-sm block">
@@ -518,7 +582,7 @@ const TenantDetail = () => {
                               }`}
                             >
                               <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                                <Mail className="h-5 w-5 text-green-600" />
+                                <Mail className="h-5 w-5 text-green-600 dark:text-green-400" />
                               </div>
                               <div>
                                 <span className="text-gray-600 dark:text-gray-400 text-sm block">
@@ -537,7 +601,7 @@ const TenantDetail = () => {
                               }`}
                             >
                               <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                                <Phone className="h-5 w-5 text-purple-600" />
+                                <Phone className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                               </div>
                               <div>
                                 <span className="text-gray-600 dark:text-gray-400 text-sm block">
@@ -550,35 +614,68 @@ const TenantDetail = () => {
                             </div>
                           </div>
                         </div>
-
+                        
                         <div className="space-y-4">
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {t("tenants.emergencyContact")}
+                            {t("tenants.leaseInfo")}
                           </h3>
                           <div className="space-y-3">
-                            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                              <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                                {t("tenants.emergencyName")}
-                              </span>
-                              <p className="font-semibold text-gray-900 dark:text-white">
-                                {tenant.emergencyContact.name}
-                              </p>
+                            <div
+                              className={`flex items-center ${
+                                direction === "rtl"
+                                  ? "space-x-reverse space-x-3"
+                                  : "space-x-3"
+                              }`}
+                            >
+                              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                                <Building className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                              </div>
+                              <div>
+                                <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                                  {t("tenants.unit")}
+                                </span>
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {tenant.unit}
+                                </p>
+                              </div>
                             </div>
-                            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                              <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                                {t("tenants.emergencyPhone")}
-                              </span>
-                              <p className="font-semibold text-gray-900 dark:text-white">
-                                {tenant.emergencyContact.phone}
-                              </p>
+                            <div
+                              className={`flex items-center ${
+                                direction === "rtl"
+                                  ? "space-x-reverse space-x-3"
+                                  : "space-x-3"
+                              }`}
+                            >
+                              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
+                                <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                              </div>
+                              <div>
+                                <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                                  {t("tenants.leaseStart")}
+                                </span>
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {new Date(tenant.leaseStart).toLocaleDateString()}
+                                </p>
+                              </div>
                             </div>
-                            <div className="p-3 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-200 dark:border-pink-800">
-                              <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                                {t("tenants.emergencyRelation")}
-                              </span>
-                              <p className="font-semibold text-gray-900 dark:text-white">
-                                {tenant.emergencyContact.relation}
-                              </p>
+                            <div
+                              className={`flex items-center ${
+                                direction === "rtl"
+                                  ? "space-x-reverse space-x-3"
+                                  : "space-x-3"
+                              }`}
+                            >
+                              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                                <Calendar className="h-5 w-5 text-red-600 dark:text-red-400" />
+                              </div>
+                              <div>
+                                <span className="text-gray-600 dark:text-gray-400 text-sm block">
+                                  {t("tenants.leaseEnd")}
+                                </span>
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {new Date(tenant.leaseEnd).toLocaleDateString()}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -668,18 +765,7 @@ const TenantDetail = () => {
                                 {t("tenants.rentAmount")}
                               </span>
                               <p className="font-semibold text-gray-900 dark:text-white">
-                                ${tenant.rent}/
-                                {tenant.rentalType === "daily"
-                                  ? "day"
-                                  : "month"}
-                              </p>
-                            </div>
-                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <span className="text-gray-600 dark:text-gray-400 text-sm block">
-                                {t("tenants.deposit")}
-                              </span>
-                              <p className="font-semibold text-gray-900 dark:text-white">
-                                ${tenant.deposit}
+                                ${tenant.rent}
                               </p>
                             </div>
                             <div
@@ -756,7 +842,7 @@ const TenantDetail = () => {
                           <tbody>
                             {tenant.paymentHistory.map((payment, index) => (
                               <tr
-                                key={payment.id}
+                                key={payment.id || `payment-${index}`}
                                 className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                               >
                                 <td className="py-4 px-4 text-gray-900 dark:text-white font-medium">
@@ -798,42 +884,6 @@ const TenantDetail = () => {
                     </div>
                   )}
 
-                  {activeTab === "maintenance" && (
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {t("tenants.maintenanceRequests")}
-                      </h3>
-                      <div className="space-y-4">
-                        {tenant.maintenanceRequests.map((request, index) => (
-                          <div
-                            key={request.id}
-                            className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-semibold text-gray-900 dark:text-white">
-                                  {request.title}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {new Date(request.date).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  request.status === "completed"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                                }`}
-                              >
-                                {request.status}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {activeTab === "reviews" && (
                     <div className="space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -854,118 +904,147 @@ const TenantDetail = () => {
                         </Button>
                       </div>
                       <div className="space-y-4">
-                        {tenant.reviews.map((review, index) => (
-                          <div
-                            key={review.id}
-                            className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div
-                                className={`flex items-center ${
-                                  direction === "rtl"
-                                    ? "space-x-reverse space-x-2"
-                                    : "space-x-2"
-                                }`}
-                              >
+                        {tenant.reviews && tenant.reviews.length > 0 ? (
+                          tenant.reviews.map((review, index) => (
+                            <div
+                              key={review.id || `review-${index}`}
+                              className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2 ">
+                                    <div className="flex items-center gap-1">
+                                      {Array.from({ length: 5 }).map((_, i) => (
+                                        <Star
+                                          key={`review-${
+                                            review.id || index
+                                          }-star-${i}`}
+                                          className={`h-4 w-4 ${
+                                            i <
+                                            parseFloat(
+                                              review.rate || review.rating || 0
+                                            )
+                                              ? "text-amber-500 fill-amber-500"
+                                              : "text-gray-300 dark:text-gray-600"
+                                          }`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div
+                                    className={`flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 ${
+                                      direction === "rtl" ? "flex-row" : ""
+                                    }`}
+                                  >
+                                    <User className="h-4 w-4" />
+                                    <span className="font-medium">
+                                      {review.tenantName ||
+                                        (review.tenant
+                                          ? getTenantNameById(
+                                              typeof review.tenant === "object"
+                                                ? review.tenant.id
+                                                : review.tenant
+                                            )
+                                          : tenant.name || "-")}
+                                    </span>
+                                    <span className="mx-1">•</span>
+                                    <Calendar className="h-4 w-4" />
+                                    <span>
+                                      {review.date
+                                        ? new Date(
+                                            review.date
+                                          ).toLocaleDateString()
+                                        : "-"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              {review.comment && (
+                                <div className="mb-3">
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                    {review.comment}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="flex justify-end">
                                 <div
-                                  className={`flex items-center ${
+                                  className={`flex gap-2 ${
                                     direction === "rtl"
-                                      ? "space-x-reverse space-x-1"
-                                      : "space-x-1"
+                                      ? "flex-row-reverse"
+                                      : ""
                                   }`}
                                 >
-                                  {Array.from({ length: 5 }).map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`h-4 w-4 ${
-                                        i < review.rating
-                                          ? "text-amber-500 fill-amber-500"
-                                          : "text-gray-300 dark:text-gray-600"
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleViewReview(review)}
+                                    title={t("common.view")}
+                                    className="flex items-center"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    <span
+                                      className={`hidden sm:inline ${
+                                        direction === "rtl" ? "mr-1" : "ml-1"
                                       }`}
-                                    />
-                                  ))}
+                                    >
+                                      {t("common.view")}
+                                    </span>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleEditReview(review)}
+                                    title={t("common.edit")}
+                                    className="flex items-center"
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                    <span
+                                      className={`hidden sm:inline ${
+                                        direction === "rtl" ? "mr-1" : "ml-1"
+                                      }`}
+                                    >
+                                      {t("common.edit")}
+                                    </span>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (!review.id) {
+                                        toast.error(
+                                          direction === "rtl"
+                                            ? "لا يمكن حذف المراجعة: المعرف غير موجود"
+                                            : "Cannot delete review: ID is missing"
+                                        );
+                                        return;
+                                      }
+                                      handleDeleteReview(review.id);
+                                    }}
+                                    disabled={!review.id}
+                                    className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                                    title={t("common.delete")}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span
+                                      className={`hidden sm:inline ${
+                                        direction === "rtl" ? "mr-1" : "ml-1"
+                                      }`}
+                                    >
+                                      {t("common.delete")}
+                                    </span>
+                                  </Button>
                                 </div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  {new Date(review.date).toLocaleDateString()}
-                                </span>
                               </div>
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  review.status === "positive"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                    : review.status === "negative"
-                                    ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                                }`}
-                              >
-                                {review.status}
-                              </span>
                             </div>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                              {review.comment}
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                            <p className="text-gray-500 dark:text-gray-400">
+                              {t("tenants.noReviews")}
                             </p>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                                {review.category}
-                              </span>
-                              <div
-                                className={`flex ${
-                                  direction === "rtl"
-                                    ? "space-x-reverse space-x-2"
-                                    : "space-x-2"
-                                }`}
-                              >
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleViewReview(review)}
-                                  title={t("common.view")}
-                                  className="flex-1 sm:flex-none"
-                                >
-                                  <Eye className="h-3 w-3" />
-                                  <span
-                                    className={`hidden sm:inline ${
-                                      direction === "rtl" ? "mr-1" : "ml-1"
-                                    }`}
-                                  >
-                                    {t("common.view")}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditReview(review)}
-                                  title={t("common.edit")}
-                                  className="flex-1 sm:flex-none"
-                                >
-                                  <Edit className="h-3 w-3" />
-                                  <span
-                                    className={`hidden sm:inline ${
-                                      direction === "rtl" ? "mr-1" : "ml-1"
-                                    }`}
-                                  >
-                                    {t("common.edit")}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
-                                  title={t("common.delete")}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  <span
-                                    className={`hidden sm:inline ${
-                                      direction === "rtl" ? "mr-1" : "ml-1"
-                                    }`}
-                                  >
-                                    {t("common.delete")}
-                                  </span>
-                                </Button>
-                              </div>
-                            </div>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   )}
@@ -989,137 +1068,220 @@ const TenantDetail = () => {
                           {t("tenants.addLease")}
                         </Button>
                       </div>
-                      <div className="space-y-4">
-                        {tenant.leases.map((lease, index) => (
-                          <div
-                            key={lease.id}
-                            className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <h4 className="font-semibold text-gray-900 dark:text-white">
-                                  {lease.unit} - {lease.type}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {new Date(
-                                    lease.startDate
-                                  ).toLocaleDateString()}{" "}
-                                  -{" "}
-                                  {new Date(lease.endDate).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                                  lease.status === "active"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800"
-                                    : lease.status === "expired"
-                                    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
-                                    : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"
-                                }`}
-                              >
-                                {lease.status}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 mb-3">
-                              <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  Rent:
-                                </span>
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                  ${lease.rent}/
-                                  {lease.rentalType === "daily"
-                                    ? "day"
-                                    : "month"}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  Deposit:
-                                </span>
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                  ${lease.deposit}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mb-3">
+                      {loadingRents ? (
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
+                          <p className="text-gray-500 dark:text-gray-400 mt-4">
+                            {direction === "rtl"
+                              ? "جاري التحميل..."
+                              : "Loading..."}
+                          </p>
+                        </div>
+                      ) : tenant.leases && tenant.leases.length > 0 ? (
+                        <div className="space-y-4">
+                          {tenant.leases.map((lease, index) => {
+                            const unitName =
+                              typeof lease.unit === "object"
+                                ? lease.unit.name || `#${lease.unit.id}`
+                                : lease.unit_name ||
+                                  `Unit #${lease.unit || "-"}`;
+                            const rentStart =
+                              lease.rent_start || lease.startDate;
+                            const rentEnd = lease.rent_end || lease.endDate;
+                            const totalAmount =
+                              lease.total_amount || lease.rent || 0;
+                            const paymentStatus =
+                              lease.payment_status || "pending";
+
+                            return (
                               <div
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRentalTypeColor(
-                                  lease.rentalType
-                                )}`}
+                                key={lease.id || `lease-${index}`}
+                                className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
                               >
-                                {t(`tenants.${lease.rentalType}`)}
-                              </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                <div className="block sm:hidden">
-                                  <div>Utilities: {lease.utilities}</div>
-                                  <div>Parking: {lease.parking}</div>
+                                <div className="flex items-center justify-between mb-3">
+                                  <div>
+                                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                                      {unitName}
+                                    </h4>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                      {rentStart
+                                        ? new Date(
+                                            rentStart
+                                          ).toLocaleDateString()
+                                        : "-"}{" "}
+                                      -{" "}
+                                      {rentEnd
+                                        ? new Date(rentEnd).toLocaleDateString()
+                                        : "-"}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                                      paymentStatusColors[paymentStatus] ||
+                                      paymentStatusColors.pending
+                                    }`}
+                                  >
+                                    {paymentStatus === "paid"
+                                      ? direction === "rtl"
+                                        ? "مدفوع"
+                                        : "Paid"
+                                      : paymentStatus === "pending"
+                                      ? direction === "rtl"
+                                        ? "قيد الانتظار"
+                                        : "Pending"
+                                      : paymentStatus === "overdue"
+                                      ? direction === "rtl"
+                                        ? "متأخر"
+                                        : "Overdue"
+                                      : paymentStatus}
+                                  </span>
                                 </div>
-                                <div className="hidden sm:block">
-                                  Utilities: {lease.utilities} • Parking:{" "}
-                                  {lease.parking}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                                  <div>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {direction === "rtl"
+                                        ? "المبلغ الإجمالي:"
+                                        : "Total Amount:"}
+                                    </span>
+                                    <p className="font-semibold text-gray-900 dark:text-white">
+                                      $
+                                      {parseFloat(totalAmount).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  {lease.payment_method && (
+                                    <div>
+                                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {direction === "rtl"
+                                          ? "طريقة الدفع:"
+                                          : "Payment Method:"}
+                                      </span>
+                                      <p className="font-semibold text-gray-900 dark:text-white capitalize">
+                                        {lease.payment_method
+                                          .replace("_", " ")
+                                          .replace(
+                                            /(bank transfer|credit card|online payment)/gi,
+                                            (match) => {
+                                              const methods = {
+                                                "bank transfer":
+                                                  direction === "rtl"
+                                                    ? "تحويل بنكي"
+                                                    : "Bank Transfer",
+                                                "credit card":
+                                                  direction === "rtl"
+                                                    ? "بطاقة ائتمان"
+                                                    : "Credit Card",
+                                                "online payment":
+                                                  direction === "rtl"
+                                                    ? "دفع إلكتروني"
+                                                    : "Online Payment",
+                                              };
+                                              return (
+                                                methods[match.toLowerCase()] ||
+                                                match
+                                              );
+                                            }
+                                          )}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                                {lease.notes && (
+                                  <div className="mb-3">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {direction === "rtl"
+                                        ? "ملاحظات:"
+                                        : "Notes:"}
+                                    </span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                                      {lease.notes}
+                                    </p>
+                                  </div>
+                                )}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+                                  <div
+                                    className={`flex ${
+                                      direction === "rtl"
+                                        ? "space-x-reverse space-x-2"
+                                        : "space-x-2"
+                                    }`}
+                                  >
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleViewLease(lease)}
+                                      title={t("common.view")}
+                                      className="flex-1 sm:flex-none"
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                      <span
+                                        className={`hidden sm:inline ${
+                                          direction === "rtl" ? "mr-1" : "ml-1"
+                                        }`}
+                                      >
+                                        {t("common.view")}
+                                      </span>
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditLease(lease)}
+                                      title={t("common.edit")}
+                                      className="flex-1 sm:flex-none"
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                      <span
+                                        className={`hidden sm:inline ${
+                                          direction === "rtl" ? "mr-1" : "ml-1"
+                                        }`}
+                                      >
+                                        {t("common.edit")}
+                                      </span>
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
+                                      title={t("common.delete")}
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            direction === "rtl"
+                                              ? "هل أنت متأكد من حذف هذا الإيجار؟"
+                                              : "Are you sure you want to delete this rent?"
+                                          )
+                                        ) {
+                                          handleSaveLease({
+                                            ...lease,
+                                            deleted: true,
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      <span
+                                        className={`hidden sm:inline ${
+                                          direction === "rtl" ? "mr-1" : "ml-1"
+                                        }`}
+                                      >
+                                        {t("common.delete")}
+                                      </span>
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
-                              <div
-                                className={`flex ${
-                                  direction === "rtl"
-                                    ? "space-x-reverse space-x-2"
-                                    : "space-x-2"
-                                }`}
-                              >
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleViewLease(lease)}
-                                  title={t("common.view")}
-                                  className="flex-1 sm:flex-none"
-                                >
-                                  <Eye className="h-3 w-3" />
-                                  <span
-                                    className={`hidden sm:inline ${
-                                      direction === "rtl" ? "mr-1" : "ml-1"
-                                    }`}
-                                  >
-                                    {t("common.view")}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditLease(lease)}
-                                  title={t("common.edit")}
-                                  className="flex-1 sm:flex-none"
-                                >
-                                  <Edit className="h-3 w-3" />
-                                  <span
-                                    className={`hidden sm:inline ${
-                                      direction === "rtl" ? "mr-1" : "ml-1"
-                                    }`}
-                                  >
-                                    {t("common.edit")}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
-                                  title={t("common.delete")}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  <span
-                                    className={`hidden sm:inline ${
-                                      direction === "rtl" ? "mr-1" : "ml-1"
-                                    }`}
-                                  >
-                                    {t("common.delete")}
-                                  </span>
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-gray-500 dark:text-gray-400">
+                            {direction === "rtl"
+                              ? "لا توجد إيجارات"
+                              : "No rents found"}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1159,9 +1321,6 @@ const TenantDetail = () => {
                     >
                       <span className="text-xl font-bold text-green-600 dark:text-green-400">
                         ${tenant.rent}
-                      </span>
-                      <span className="text-gray-500 text-sm">
-                        /{tenant.rentalType === "daily" ? "day" : "month"}
                       </span>
                     </div>
                   </h3>
@@ -1238,7 +1397,7 @@ const TenantDetail = () => {
                 <div className="space-y-3">
                   {tenant.recentActivity.map((activity, index) => (
                     <div
-                      key={activity.id}
+                      key={activity.id || `activity-${index}`}
                       className={`flex items-start ${
                         direction === "rtl"
                           ? "space-x-reverse space-x-3"

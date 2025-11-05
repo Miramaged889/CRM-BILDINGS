@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLanguageStore } from "../../../stores/languageStore";
 import { useTranslation } from "react-i18next";
@@ -10,87 +10,163 @@ import {
   FileText,
   X,
   Edit,
-  Printer,
-  Mail,
-  Phone,
-  Car,
-  Shield,
-  Droplets,
   Clock,
-  Home,
+  CreditCard,
+  MessageSquare,
 } from "lucide-react";
 import Card from "../../ui/Card";
 import Button from "../../ui/Button";
+import api from "../../../services/api";
+import API_ENDPOINTS from "../../../services/apiEndpoints";
 
 const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
   const { direction } = useLanguageStore();
   const { t } = useTranslation();
 
-  const translateStatus = (status) => {
-    if (status === "active") return direction === "rtl" ? "نشط" : "Active";
-    if (status === "expired") return direction === "rtl" ? "منتهي" : "Expired";
-    if (status === "pending") return direction === "rtl" ? "معلق" : "Pending";
+  // State for unit and tenant names
+  const [unitName, setUnitName] = useState("");
+  const [tenantName, setTenantName] = useState("");
+
+  // Fetch unit and tenant names
+  useEffect(() => {
+    const fetchNames = async () => {
+      try {
+        const unitId =
+          typeof lease?.unit === "object" ? lease.unit.id : lease?.unit;
+        const tenantId =
+          typeof lease?.tenant === "object" ? lease.tenant.id : lease?.tenant;
+
+        if (unitId) {
+          try {
+            const unitData = await api.get(API_ENDPOINTS.UNITS.DETAIL(unitId));
+            const unitLabelParts = [
+              unitData.name || `#${unitData.id}`,
+              (unitData.city_name || unitData.city) &&
+              (unitData.district_name || unitData.district)
+                ? `${unitData.city_name || unitData.city} - ${
+                    unitData.district_name || unitData.district
+                  }`
+                : unitData.city_name ||
+                  unitData.city ||
+                  unitData.district_name ||
+                  unitData.district,
+            ].filter(Boolean);
+            setUnitName(unitLabelParts.join(" - "));
+          } catch (e) {
+            setUnitName(unitId.toString());
+          }
+        }
+
+        if (tenantId) {
+          try {
+            const tenantData = await api.get(
+              API_ENDPOINTS.TENANTS.DETAIL(tenantId)
+            );
+            setTenantName(
+              tenantData.full_name ||
+                tenantData.name ||
+                tenantData.phone ||
+                `#${tenantId}`
+            );
+          } catch (e) {
+            setTenantName(tenantId.toString());
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching names:", error);
+      }
+    };
+
+    if (lease) {
+      fetchNames();
+    }
+  }, [lease]);
+
+  const translatePaymentStatus = (status) => {
+    if (status === "paid") return direction === "rtl" ? "مدفوع" : "Paid";
+    if (status === "pending")
+      return direction === "rtl" ? "قيد الانتظار" : "Pending";
+    if (status === "overdue") return direction === "rtl" ? "متأخر" : "Overdue";
     return status;
   };
 
-  const translateType = (type) => {
-    if (type === "apartment") return direction === "rtl" ? "شقة" : "Apartment";
-    if (type === "villa") return direction === "rtl" ? "فيلا" : "Villa";
-    if (type === "office") return direction === "rtl" ? "مكتب" : "Office";
-    if (type === "shop") return direction === "rtl" ? "محل" : "Shop";
-    return type;
+  const translatePaymentMethod = (method) => {
+    const methods = {
+      cash: direction === "rtl" ? "نقدًا" : "Cash",
+      bank_transfer: direction === "rtl" ? "تحويل بنكي" : "Bank Transfer",
+      credit_card: direction === "rtl" ? "بطاقة ائتمان" : "Credit Card",
+      online_payment: direction === "rtl" ? "دفع إلكتروني" : "Online Payment",
+    };
+    return methods[method] || method;
   };
 
-  const getStatusColor = (status) => {
-    if (status === "active")
+  const getPaymentStatusColor = (status) => {
+    if (status === "paid")
       return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300";
-    if (status === "expired")
-      return "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300";
     if (status === "pending")
       return "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
+    if (status === "overdue")
+      return "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300";
     return "bg-gray-50 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300";
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString(
-      direction === "rtl" ? "ar-EG" : "en-US",
-      {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        calendar: "gregory",
-      }
-    );
+    if (!dateString) return "-";
+    try {
+      return new Date(dateString).toLocaleDateString(
+        direction === "rtl" ? "ar-EG" : "en-US",
+        {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          calendar: "gregory",
+        }
+      );
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const formatCurrency = (amount) => {
+    if (!amount) return "$0.00";
+    const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(amount);
+    }).format(numAmount || 0);
   };
 
   const calculateDuration = () => {
-    const start = new Date(lease.startDate);
-    const end = new Date(lease.endDate);
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const months = Math.ceil(diffDays / 30);
-    return months;
-  };
-
-  const calculateTotalValue = () => {
-    const months = calculateDuration();
-    return lease.rent * months;
+    if (!lease?.rent_start || !lease?.rent_end) return { days: 0 };
+    try {
+      const start = new Date(lease.rent_start);
+      const end = new Date(lease.rent_end);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      const diffTime = end - start;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return { days: diffDays };
+    } catch (e) {
+      return { days: 0 };
+    }
   };
 
   const isExpiringSoon = () => {
-    const endDate = new Date(lease.endDate);
-    const today = new Date();
-    const diffTime = endDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays > 0;
+    if (!lease?.rent_end) return false;
+    try {
+      const endDate = new Date(lease.rent_end);
+      const today = new Date();
+      const diffTime = endDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 30 && diffDays > 0;
+    } catch (e) {
+      return false;
+    }
   };
+
+  if (!lease) return null;
+
+  const duration = calculateDuration();
 
   return (
     <motion.div
@@ -111,12 +187,12 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex-1">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  {direction === "rtl" ? "تفاصيل عقد الإيجار" : "Lease Details"}
+                  {direction === "rtl" ? "تفاصيل الإيجار" : "Rent Details"}
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                   {direction === "rtl"
-                    ? "عرض تفاصيل عقد الإيجار"
-                    : "View lease contract details"}
+                    ? "عرض تفاصيل الإيجار"
+                    : "View rent details"}
                 </p>
               </div>
               <button
@@ -130,23 +206,23 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
 
           {/* Content */}
           <div className="p-4 sm:p-6 space-y-6">
-            {/* Lease Header */}
+            {/* Rent Header */}
             <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6">
               <h3 className="text-2xl font-bold text-blue-900 dark:text-blue-100 mb-2">
-                {direction === "rtl" ? "عقد إيجار" : "Lease Contract"}
+                {direction === "rtl" ? "إيجار" : "Rent"}
               </h3>
               <p className="text-blue-700 dark:text-blue-300">
                 {direction === "rtl"
-                  ? "عقد إيجار عقاري"
-                  : "Property Rental Agreement"}
+                  ? "تفاصيل عقد الإيجار"
+                  : "Rental Agreement Details"}
               </p>
-              <div className="mt-4 flex items-center justify-center gap-4">
+              <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
                 <span
-                  className={`px-4 py-2 text-sm rounded-full font-medium ${getStatusColor(
-                    lease.status
+                  className={`px-4 py-2 text-sm rounded-full font-medium ${getPaymentStatusColor(
+                    lease.payment_status || "pending"
                   )}`}
                 >
-                  {translateStatus(lease.status)}
+                  {translatePaymentStatus(lease.payment_status || "pending")}
                 </span>
                 {isExpiringSoon() && (
                   <span className="px-4 py-2 text-sm rounded-full font-medium bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
@@ -156,8 +232,30 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
               </div>
             </div>
 
-            {/* Lease Information Grid */}
+            {/* Rent Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Unit Information */}
+              <Card className="p-6">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <Building
+                    className={`h-5 w-5 text-green-600 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
+                  {direction === "rtl" ? "الوحدة" : "Unit"}
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      {direction === "rtl" ? "اسم الوحدة:" : "Unit Name:"}
+                    </span>
+                    <p className="text-gray-900 dark:text-white font-medium">
+                      {unitName || lease.unit_name || lease.unit || "-"}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
               {/* Tenant Information */}
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -176,61 +274,13 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       {direction === "rtl" ? "الاسم:" : "Name:"}
                     </span>
                     <p className="text-gray-900 dark:text-white font-medium">
-                      {lease.tenant}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "البريد الإلكتروني:" : "Email:"}
-                    </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      {lease.tenantEmail}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "رقم الهاتف:" : "Phone:"}
-                    </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      {lease.tenantPhone}
+                      {tenantName || lease.tenant_name || "-"}
                     </p>
                   </div>
                 </div>
               </Card>
 
-              {/* Property Information */}
-              <Card className="p-6">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <Building
-                    className={`h-5 w-5 text-green-600 ${
-                      direction === "rtl" ? "ml-2" : "mr-2"
-                    }`}
-                  />
-                  {direction === "rtl"
-                    ? "معلومات العقار"
-                    : "Property Information"}
-                </h4>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "رقم الوحدة:" : "Unit:"}
-                    </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      {lease.unit}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "النوع:" : "Type:"}
-                    </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      {translateType(lease.type)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Lease Details */}
+              {/* Rent Details */}
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <FileText
@@ -238,24 +288,28 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       direction === "rtl" ? "ml-2" : "mr-2"
                     }`}
                   />
-                  {direction === "rtl" ? "تفاصيل العقد" : "Lease Details"}
+                  {direction === "rtl" ? "تفاصيل الإيجار" : "Rent Details"}
                 </h4>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "رقم العقد:" : "Lease #:"}
+                <div className="space-y-4">
+                  <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <span className="text-xs font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wide block mb-1">
+                      {direction === "rtl" ? "رقم الإيجار" : "Rent #"}
                     </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      #{lease.id}
+                    <p className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                      #{lease.id || "-"}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "المدة:" : "Duration:"}
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide block mb-1">
+                      {direction === "rtl" ? "المدة" : "Duration"}
                     </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      {calculateDuration()}{" "}
-                      {direction === "rtl" ? "شهر" : "months"}
+                    <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                      {duration.days} {direction === "rtl" ? "يوم" : "day"}
+                      {duration.days !== 1
+                        ? direction === "rtl"
+                          ? ""
+                          : "s"
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -272,7 +326,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       direction === "rtl" ? "ml-2" : "mr-2"
                     }`}
                   />
-                  {direction === "rtl" ? "تواريخ العقد" : "Lease Dates"}
+                  {direction === "rtl" ? "تواريخ الإيجار" : "Rent Dates"}
                 </h4>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -283,7 +337,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       </span>
                     </div>
                     <span className="text-gray-900 dark:text-white font-medium">
-                      {formatDate(lease.startDate)}
+                      {formatDate(lease.rent_start)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -294,7 +348,7 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                       </span>
                     </div>
                     <span className="text-gray-900 dark:text-white font-medium">
-                      {formatDate(lease.endDate)}
+                      {formatDate(lease.rent_end)}
                     </span>
                   </div>
                 </div>
@@ -316,101 +370,44 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                   <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <span className="text-sm font-medium text-green-700 dark:text-green-300">
                       {direction === "rtl"
-                        ? "الإيجار الشهري:"
-                        : "Monthly Rent:"}
+                        ? "المبلغ الإجمالي:"
+                        : "Total Amount:"}
                     </span>
                     <span className="text-green-900 dark:text-green-100 font-bold text-lg">
-                      {formatCurrency(lease.rent)}
+                      {formatCurrency(lease.total_amount)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                      {direction === "rtl" ? "الضمان:" : "Security Deposit:"}
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center">
+                      <CreditCard className="h-4 w-4 mr-1" />
+                      {direction === "rtl" ? "طريقة الدفع:" : "Payment Method:"}
                     </span>
-                    <span className="text-blue-900 dark:text-blue-100 font-bold">
-                      {formatCurrency(lease.deposit)}
+                    <span className="text-blue-900 dark:text-blue-100 font-medium">
+                      {translatePaymentMethod(lease.payment_method || "cash")}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                      {direction === "rtl"
-                        ? "إجمالي قيمة العقد:"
-                        : "Total Lease Value:"}
+                      {direction === "rtl" ? "تاريخ الدفع:" : "Payment Date:"}
                     </span>
-                    <span className="text-purple-900 dark:text-purple-100 font-bold">
-                      {formatCurrency(calculateTotalValue())}
+                    <span className="text-purple-900 dark:text-purple-100 font-medium">
+                      {formatDate(lease.payment_date)}
                     </span>
                   </div>
                 </div>
               </Card>
             </div>
 
-            {/* Additional Information */}
-            {(lease.utilities || lease.petPolicy || lease.parking) && (
+            {/* Notes Section */}
+            {lease.notes && (
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <Home
+                  <MessageSquare
                     className={`h-5 w-5 text-orange-600 ${
                       direction === "rtl" ? "ml-2" : "mr-2"
                     }`}
                   />
-                  {direction === "rtl"
-                    ? "معلومات إضافية"
-                    : "Additional Information"}
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {lease.utilities && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <div className="flex items-center mb-2">
-                        <Droplets className="h-4 w-4 text-blue-600 mr-2" />
-                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                          {direction === "rtl" ? "المرافق" : "Utilities"}
-                        </span>
-                      </div>
-                      <p className="text-blue-900 dark:text-blue-100 text-sm">
-                        {lease.utilities}
-                      </p>
-                    </div>
-                  )}
-
-                  {lease.petPolicy && (
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <div className="flex items-center mb-2">
-                        <Shield className="h-4 w-4 text-green-600 mr-2" />
-                        <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                          {direction === "rtl"
-                            ? "سياسة الحيوانات"
-                            : "Pet Policy"}
-                        </span>
-                      </div>
-                      <p className="text-green-900 dark:text-green-100 text-sm">
-                        {lease.petPolicy}
-                      </p>
-                    </div>
-                  )}
-
-                  {lease.parking && (
-                    <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                      <div className="flex items-center mb-2">
-                        <Car className="h-4 w-4 text-orange-600 mr-2" />
-                        <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                          {direction === "rtl" ? "مواقف السيارات" : "Parking"}
-                        </span>
-                      </div>
-                      <p className="text-orange-900 dark:text-orange-100 text-sm">
-                        {lease.parking}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
-
-            {/* Notes Section */}
-            {lease.notes && (
-              <Card className="p-6">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  {direction === "rtl" ? "ملاحظات إضافية" : "Additional Notes"}
+                  {direction === "rtl" ? "ملاحظات" : "Notes"}
                 </h4>
                 <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                   {lease.notes}
@@ -436,25 +433,33 @@ const LeaseViewModal = ({ lease, onClose, onEdit, onPrint }) => {
                 />
                 {direction === "rtl" ? "إغلاق" : "Close"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => onPrint(lease)}
-                className="w-full sm:w-auto px-6 py-2"
-              >
-                <Printer
-                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
-                />
-                {direction === "rtl" ? "طباعة" : "Print"}
-              </Button>
-              <Button
-                onClick={() => onEdit(lease)}
-                className="w-full sm:w-auto px-6 py-2"
-              >
-                <Edit
-                  className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
-                />
-                {direction === "rtl" ? "تعديل" : "Edit"}
-              </Button>
+              {onPrint && (
+                <Button
+                  variant="outline"
+                  onClick={() => onPrint(lease)}
+                  className="w-full sm:w-auto px-6 py-2"
+                >
+                  <FileText
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
+                  {direction === "rtl" ? "طباعة" : "Print"}
+                </Button>
+              )}
+              {onEdit && (
+                <Button
+                  onClick={() => onEdit(lease)}
+                  className="w-full sm:w-auto px-6 py-2"
+                >
+                  <Edit
+                    className={`h-4 w-4 ${
+                      direction === "rtl" ? "ml-2" : "mr-2"
+                    }`}
+                  />
+                  {direction === "rtl" ? "تعديل" : "Edit"}
+                </Button>
+              )}
             </div>
           </div>
         </Card>

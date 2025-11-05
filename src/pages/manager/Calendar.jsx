@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,6 +10,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Card from "../../components/ui/Card";
+import { getRents } from "../../services/api";
+import api from "../../services/api";
+import API_ENDPOINTS from "../../services/apiEndpoints";
+import toast from "react-hot-toast";
 
 // Helpers
 const toISODate = (date) => {
@@ -27,77 +31,126 @@ const endOfMonth = (date) =>
 const Calendar = () => {
   const { direction } = useLanguageStore();
   const { t } = useTranslation();
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 8, 1));
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [filter, setFilter] = useState("all");
-  const [buildingFilter, setBuildingFilter] = useState("all");
   const [unitFilter, setUnitFilter] = useState("all");
+  const [periods, setPeriods] = useState([]);
+  const [loadingRents, setLoadingRents] = useState(false);
 
-  // Range-based periods (unit/building busy windows)
-  const periods = [
-    {
-      id: "u1",
-      kind: "unit",
-      entity: "A-101",
-      status: "occupied",
-      start: "2025-10-01",
-      end: "2025-12-31",
-      where: "Sunset Tower",
-    },
-    {
-      id: "u2",
-      kind: "unit",
-      entity: "B-201",
-      status: "maintenance",
-      start: "2025-10-02",
-      end: "2025-10-05",
-      where: "Palm Residency",
-    },
-    {
-      id: "u3",
-      kind: "unit",
-      entity: "C-301",
-      status: "occupied",
-      start: "2025-10-10",
-      end: "2025-11-09",
-      where: "Nile Heights",
-    },
-    {
-      id: "u4",
-      kind: "unit",
-      entity: "D-401",
-      status: "occupied",
-      start: "2025-10-15",
-      end: "2025-11-14",
-      where: "Green Gardens",
-    },
-    {
-      id: "u5",
-      kind: "unit",
-      entity: "E-501",
-      status: "maintenance",
-      start: "2025-10-20",
-      end: "2025-10-21",
-      where: "City View",
-    },
-    {
-      id: "b1",
-      kind: "building",
-      entity: "Sunset Tower",
-      status: "inspection",
-      start: "2025-11-05",
-      end: "2025-11-05",
-      where: "Sunset Tower",
-    },
-    {
-      id: "b2",
-      kind: "building",
-      entity: "City View",
-      status: "maintenance",
-      start: "2025-12-27",
-      end: "2025-12-29",
-      where: "City View",
-    },
-  ];
+  // Function to fetch rents
+  const fetchRents = useCallback(async () => {
+    setLoadingRents(true);
+    try {
+      const response = await getRents({});
+      // Handle paginated response with results array
+      const rentsData = response?.results || response?.data || response || [];
+      const rentsArray = Array.isArray(rentsData) ? rentsData : [];
+
+        // Get unique unit IDs
+        const unitIds = new Set();
+        rentsArray.forEach((rent) => {
+          if (rent.unit) {
+            const unitId =
+              typeof rent.unit === "object" ? rent.unit.id : rent.unit;
+            if (unitId) unitIds.add(unitId);
+          }
+        });
+
+        // Fetch all units in parallel
+        const unitPromises = Array.from(unitIds).map((unitId) =>
+          api
+            .get(API_ENDPOINTS.UNITS.DETAIL(unitId))
+            .then((data) => ({ id: unitId, data }))
+            .catch((error) => {
+              console.error(`Error fetching unit ${unitId}:`, error);
+              return { id: unitId, data: null };
+            })
+        );
+
+        const unitsData = await Promise.all(unitPromises);
+        const unitsMap = new Map();
+        unitsData.forEach(({ id, data }) => {
+          if (data) unitsMap.set(id, data);
+        });
+
+        // Convert rents to periods format
+        const periodsArray = rentsArray
+          .filter((rent) => rent.rent_start && rent.rent_end)
+          .map((rent) => {
+            const unitId =
+              typeof rent.unit === "object" ? rent.unit.id : rent.unit;
+            const unitData = unitsMap.get(unitId);
+
+            // Get unit information
+            let unitName = `Unit #${unitId || "-"}`;
+            let buildingName = "-";
+
+            if (unitData) {
+              unitName = unitData.name || unitName;
+              buildingName =
+                unitData.building_name ||
+                unitData.building ||
+                (unitData.city_name || unitData.city || "") +
+                  (unitData.district_name || unitData.district
+                    ? ` - ${unitData.district_name || unitData.district}`
+                    : "");
+            }
+
+            // Map payment_status to calendar status
+            let status = "occupied"; // default
+            if (rent.payment_status === "paid") {
+              status = "occupied";
+            } else if (rent.payment_status === "pending") {
+              status = "maintenance";
+            } else if (rent.payment_status === "overdue") {
+              status = "inspection";
+            }
+
+            return {
+              id: `rent-${rent.id}`,
+              kind: "unit",
+              entity: unitName,
+              status: status,
+              start: rent.rent_start,
+              end: rent.rent_end,
+              where: buildingName,
+              rentId: rent.id,
+            };
+          });
+
+        setPeriods(periodsArray);
+      } catch (error) {
+        console.error("Error fetching rents:", error);
+        toast.error(
+          direction === "rtl" ? "فشل تحميل الإيجارات" : "Failed to load rents"
+        );
+        setPeriods([]);
+      } finally {
+        setLoadingRents(false);
+      }
+  }, [direction]);
+
+  // Fetch rents on mount and when direction changes
+  useEffect(() => {
+    fetchRents();
+  }, [fetchRents]);
+
+  // Listen for rent creation/update events to refresh calendar
+  useEffect(() => {
+    const handleRentUpdate = () => {
+      fetchRents();
+    };
+
+    window.addEventListener("rent-created", handleRentUpdate);
+    window.addEventListener("rent-updated", handleRentUpdate);
+    window.addEventListener("rent-deleted", handleRentUpdate);
+
+    return () => {
+      window.removeEventListener("rent-created", handleRentUpdate);
+      window.removeEventListener("rent-updated", handleRentUpdate);
+      window.removeEventListener("rent-deleted", handleRentUpdate);
+    };
+  }, [fetchRents]);
 
   const monthLabel = useMemo(() => {
     return currentDate.toLocaleDateString(undefined, {
@@ -133,29 +186,13 @@ const Calendar = () => {
     if (filter !== "all") {
       result = result.filter((p) => p.kind === filter);
     }
-    if (buildingFilter !== "all") {
-      result = result.filter((p) =>
-        p.kind === "building"
-          ? p.entity === buildingFilter
-          : p.where === buildingFilter
-      );
-    }
     if (unitFilter !== "all") {
       result = result.filter((p) =>
         p.kind === "unit" ? p.entity === unitFilter : true
       );
     }
     return result;
-  }, [filter, buildingFilter, unitFilter, periods]);
-
-  const buildingOptions = useMemo(() => {
-    const set = new Set();
-    for (const p of periods) {
-      if (p.kind === "building") set.add(p.entity);
-      if (p.kind === "unit") set.add(p.where);
-    }
-    return Array.from(set).sort();
-  }, [periods]);
+  }, [filter, unitFilter, periods]);
 
   const unitOptions = useMemo(() => {
     const set = new Set();
@@ -211,10 +248,13 @@ const Calendar = () => {
               {direction === "rtl" ? "التقويم" : "Calendar"}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {direction === "rtl"
-                ? "أحداث الوحدات والمباني"
-                : "Unit and building events"}
+              {direction === "rtl" ? "أحداث الإيجارات" : "Rents Events"}
             </p>
+            {loadingRents && (
+              <div className="text-sm text-primary-600 dark:text-primary-400 mt-2">
+                {direction === "rtl" ? "جاري التحميل..." : "Loading..."}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -228,23 +268,6 @@ const Calendar = () => {
               <option value="unit">
                 {direction === "rtl" ? "الوحدات" : "Units"}
               </option>
-              <option value="building">
-                {direction === "rtl" ? "المباني" : "Buildings"}
-              </option>
-            </select>
-            <select
-              value={buildingFilter}
-              onChange={(e) => setBuildingFilter(e.target.value)}
-              className="hidden md:block px-2.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-colors"
-            >
-              <option value="all">
-                {direction === "rtl" ? "كل المباني" : "All Buildings"}
-              </option>
-              {buildingOptions.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
             </select>
             <select
               value={unitFilter}
@@ -412,7 +435,6 @@ const Calendar = () => {
                       : "Building"}{" "}
                     • {p.entity}
                   </span>
-                  <span className="text-xs text-gray-500">{p.where}</span>
                 </div>
                 <div
                   className={`text-xs px-2 py-1 rounded-full border ${chipFor(

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useTranslation } from "react-i18next";
+import { isoToDateInput } from "../../utils/dateUtils";
 import {
   Package,
   Building,
@@ -28,36 +29,59 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
     name: stock?.name || "",
     category: stock?.category || "",
     quantity: stock?.quantity || "",
-    minQuantity: stock?.minQuantity || "",
-    unit: stock?.unit || "",
-    unitPrice: stock?.unitPrice || "",
-    supplier: stock?.supplier || "",
+    minQuantity: stock?.lower_quantity || stock?.minQuantity || "",
+    unit: stock?.unit_of_measure || stock?.unit || "",
+    unitPrice: stock?.unit_price || stock?.unitPrice || "",
+    supplier: stock?.supplier_name || stock?.supplier || "",
     location: stock?.location || "",
     description: stock?.description || "",
     lastRestocked:
-      stock?.lastRestocked || new Date().toISOString().split("T")[0],
+      stock?.lastRestocked || stock?.updated_at
+        ? isoToDateInput(stock.lastRestocked || stock.updated_at)
+        : new Date().toISOString().split("T")[0],
   });
 
   const [errors, setErrors] = useState({});
 
+  // Update form data when stock prop changes
+  React.useEffect(() => {
+    if (stock) {
+      setFormData({
+        name: stock.name || "",
+        category: stock.category || "",
+        quantity: stock.quantity || "",
+        minQuantity: stock.lower_quantity || stock.minQuantity || "",
+        unit: stock.unit_of_measure || stock.unit || "",
+        unitPrice: stock.unit_price || stock.unitPrice || "",
+        supplier: stock.supplier_name || stock.supplier || "",
+        location: stock.location || "",
+        description: stock.description || "",
+        lastRestocked:
+          stock.lastRestocked || stock.updated_at
+            ? isoToDateInput(stock.lastRestocked || stock.updated_at)
+            : new Date().toISOString().split("T")[0],
+      });
+    }
+  }, [stock]);
+
   const categories = [
-    { value: "maintenance", label: "Maintenance" },
-    { value: "electrical", label: "Electrical" },
-    { value: "plumbing", label: "Plumbing" },
-    { value: "security", label: "Security" },
-    { value: "cleaning", label: "Cleaning" },
-    { value: "furniture", label: "Furniture" },
+    { value: "Maintenance", label: "Maintenance" },
+    { value: "Electrical", label: "Electrical" },
+    { value: "Plumbing", label: "Plumbing" },
+    { value: "Security", label: "Security" },
+    { value: "Cleaning", label: "Cleaning" },
+    { value: "Furniture", label: "Furniture" },
   ];
 
   const units = [
-    { value: "pieces", label: "Pieces" },
-    { value: "boxes", label: "Boxes" },
-    { value: "gallons", label: "Gallons" },
-    { value: "liters", label: "Liters" },
-    { value: "kits", label: "Kits" },
-    { value: "sets", label: "Sets" },
-    { value: "meters", label: "Meters" },
-    { value: "feet", label: "Feet" },
+    { value: "Pieces", label: "Pieces" },
+    { value: "Boxes", label: "Boxes" },
+    { value: "Gallons", label: "Gallons" },
+    { value: "Liters", label: "Liters" },
+    { value: "Kits", label: "Kits" },
+    { value: "Sets", label: "Sets" },
+    { value: "Meters", label: "Meters" },
+    { value: "Feet", label: "Feet" },
   ];
 
   const handleInputChange = (field, value) => {
@@ -131,12 +155,11 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
       const stockData = {
         ...formData,
         id: stock?.id || Date.now(),
-        status:
-          formData.quantity > formData.minQuantity
-            ? "in_stock"
-            : formData.quantity > 0
-            ? "low_stock"
-            : "out_of_stock",
+        // Map to API format
+        lower_quantity: formData.minQuantity,
+        unit_of_measure: formData.unit,
+        unit_price: formData.unitPrice,
+        supplier_name: formData.supplier,
       };
 
       onSave(stockData);

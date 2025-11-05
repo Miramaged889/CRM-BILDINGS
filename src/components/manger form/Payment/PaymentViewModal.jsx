@@ -31,15 +31,32 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
   };
 
   const translateMethod = (method) => {
-    if (method === "Bank Transfer")
-      return direction === "rtl" ? "تحويل بنكي" : "Bank Transfer";
-    if (method === "Cash") return direction === "rtl" ? "نقداً" : "Cash";
-    if (method === "Credit Card")
-      return direction === "rtl" ? "بطاقة ائتمان" : "Credit Card";
-    if (method === "Check") return direction === "rtl" ? "شيك" : "Check";
-    if (method === "Online Payment")
-      return direction === "rtl" ? "دفع إلكتروني" : "Online Payment";
-    return method;
+    // Handle both old and new API formats
+    const methodMap = {
+      "bank_transfer": direction === "rtl" ? "تحويل بنكي" : "Bank Transfer",
+      "Bank Transfer": direction === "rtl" ? "تحويل بنكي" : "Bank Transfer",
+      "cash": direction === "rtl" ? "نقداً" : "Cash",
+      "Cash": direction === "rtl" ? "نقداً" : "Cash",
+      "credit_card": direction === "rtl" ? "بطاقة ائتمان" : "Credit Card",
+      "Credit Card": direction === "rtl" ? "بطاقة ائتمان" : "Credit Card",
+      "online_payment": direction === "rtl" ? "دفع إلكتروني" : "Online Payment",
+      "Online Payment": direction === "rtl" ? "دفع إلكتروني" : "Online Payment",
+      "Check": direction === "rtl" ? "شيك" : "Check",
+    };
+    return methodMap[method] || method;
+  };
+
+  const translateCategory = (category) => {
+    const categoryMap = {
+      "wifi": direction === "rtl" ? "واي فاي" : "WiFi",
+      "electricity": direction === "rtl" ? "كهرباء" : "Electricity",
+      "water": direction === "rtl" ? "مياه" : "Water",
+      "cleaning": direction === "rtl" ? "تنظيف" : "Cleaning",
+      "maintenance": direction === "rtl" ? "صيانة" : "Maintenance",
+      "repair": direction === "rtl" ? "إصلاح" : "Repair",
+      "other": direction === "rtl" ? "أخرى" : "Other",
+    };
+    return categoryMap[category] || category;
   };
 
   const getStatusColor = (status) => {
@@ -63,16 +80,20 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return direction === "rtl" ? "غير مدفوع" : "Not paid";
-    return new Date(dateString).toLocaleDateString(
-      direction === "rtl" ? "ar-EG" : "en-US",
-      {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        calendar: "gregory",
-      }
-    );
+    if (!dateString) return direction === "rtl" ? "غير متاح" : "Not available";
+    try {
+      return new Date(dateString).toLocaleDateString(
+        direction === "rtl" ? "ar-EG" : "en-US",
+        {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          calendar: "gregory",
+        }
+      );
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -157,35 +178,37 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
 
             {/* Payment Information Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Tenant Information */}
+              {/* Unit and Category Information */}
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <User
+                  <Building
                     className={`h-5 w-5 text-blue-600 ${
                       direction === "rtl" ? "ml-2" : "mr-2"
                     }`}
                   />
                   {direction === "rtl"
-                    ? "معلومات المستأجر"
-                    : "Tenant Information"}
+                    ? "معلومات الوحدة والفئة"
+                    : "Unit and Category Information"}
                 </h4>
                 <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {direction === "rtl" ? "الاسم:" : "Name:"}
-                    </span>
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      {payment.tenant}
-                    </p>
-                  </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       {direction === "rtl" ? "الوحدة:" : "Unit:"}
                     </span>
                     <p className="text-gray-900 dark:text-white font-medium">
-                      {payment.unit}
+                      {payment.unit || payment.unit_id || "-"}
                     </p>
                   </div>
+                  {payment.category && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        {direction === "rtl" ? "الفئة:" : "Category:"}
+                      </span>
+                      <p className="text-gray-900 dark:text-white font-medium">
+                        {translateCategory(payment.category)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -213,7 +236,7 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
                       {direction === "rtl" ? "طريقة الدفع:" : "Payment Method:"}
                     </span>
                     <p className="text-gray-900 dark:text-white font-medium">
-                      {translateMethod(payment.method)}
+                      {translateMethod(payment.payment_method || payment.method)}
                     </p>
                   </div>
                 </div>
@@ -249,7 +272,7 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
                       {direction === "rtl" ? "تاريخ الدفع:" : "Payment Date:"}
                     </span>
                     <span className="text-blue-900 dark:text-blue-100 font-medium">
-                      {formatDate(payment.date)}
+                      {formatDate(payment.payment_date || payment.date)}
                     </span>
                   </div>
                 </div>
@@ -267,7 +290,7 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
                 {direction === "rtl" ? "تواريخ مهمة" : "Important Dates"}
               </h4>
               <div className="space-y-4">
-                {payment.date && (
+                {(payment.payment_date || payment.date) && (
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center">
                       <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
@@ -276,20 +299,33 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
                       </span>
                     </div>
                     <span className="text-gray-900 dark:text-white font-medium">
-                      {formatDate(payment.date)}
+                      {formatDate(payment.payment_date || payment.date)}
                     </span>
                   </div>
                 )}
-                {payment.dueDate && (
+                {payment.created_at && (
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center">
                       <Clock className="h-4 w-4 text-blue-600 mr-2" />
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {direction === "rtl" ? "تاريخ الاستحقاق:" : "Due Date:"}
+                        {direction === "rtl" ? "تاريخ الإنشاء:" : "Created At:"}
                       </span>
                     </div>
                     <span className="text-gray-900 dark:text-white font-medium">
-                      {formatDate(payment.dueDate)}
+                      {formatDate(payment.created_at)}
+                    </span>
+                  </div>
+                )}
+                {payment.updated_at && payment.updated_at !== payment.created_at && (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 text-purple-600 mr-2" />
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {direction === "rtl" ? "آخر تحديث:" : "Last Updated:"}
+                      </span>
+                    </div>
+                    <span className="text-gray-900 dark:text-white font-medium">
+                      {formatDate(payment.updated_at)}
                     </span>
                   </div>
                 )}
@@ -297,7 +333,7 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
             </Card>
 
             {/* Additional Information */}
-            {(payment.description || payment.reference) && (
+            {payment.notes && (
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   {direction === "rtl"
@@ -305,28 +341,14 @@ const PaymentViewModal = ({ payment, onClose, onEdit, onPrint }) => {
                     : "Additional Information"}
                 </h4>
                 <div className="space-y-4">
-                  {payment.reference && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        {direction === "rtl"
-                          ? "رقم المرجع:"
-                          : "Reference Number:"}
-                      </span>
-                      <p className="text-gray-900 dark:text-white font-medium">
-                        {payment.reference}
-                      </p>
-                    </div>
-                  )}
-                  {payment.description && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        {direction === "rtl" ? "الوصف:" : "Description:"}
-                      </span>
-                      <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg mt-1">
-                        {payment.description}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      {direction === "rtl" ? "ملاحظات:" : "Notes:"}
+                    </span>
+                    <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg mt-1">
+                      {payment.notes}
+                    </p>
+                  </div>
                 </div>
               </Card>
             )}

@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../stores/languageStore";
-import { Link } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { fetchStock, createStock, updateStock, deleteStock } from "../../store/slices/stockSlice";
 import {
   Search,
   Plus,
@@ -25,145 +26,127 @@ import {
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { StockForm } from "../../components/manger form";
+import toast from "react-hot-toast";
 
 const Stock = () => {
   const { t } = useTranslation();
   const { direction } = useLanguageStore();
+  const dispatch = useAppDispatch();
+  const { stock, isLoading, error } = useAppSelector((state) => state.stock);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
 
-  const stockItems = [
-    {
-      id: 1,
-      name: "Cleaning Supplies",
-      category: "maintenance",
-      quantity: 25,
-      minQuantity: 10,
-      unit: "boxes",
-      unitPrice: 15.5,
-      supplier: "CleanPro Supplies",
-      lastRestocked: "2024-01-15",
-      location: "Storage Room A",
-      status: "in_stock",
-      description: "General cleaning supplies for common areas",
-    },
-    {
-      id: 2,
-      name: "Light Bulbs",
-      category: "electrical",
-      quantity: 8,
-      minQuantity: 15,
-      unit: "pieces",
-      unitPrice: 8.75,
-      supplier: "ElectroMart",
-      lastRestocked: "2024-01-10",
-      location: "Electrical Storage",
-      status: "low_stock",
-      description: "LED light bulbs for all units",
-    },
-    {
-      id: 3,
-      name: "Paint",
-      category: "maintenance",
-      quantity: 0,
-      minQuantity: 5,
-      unit: "gallons",
-      unitPrice: 45.0,
-      supplier: "PaintPro",
-      lastRestocked: "2024-01-05",
-      location: "Storage Room B",
-      status: "out_of_stock",
-      description: "White paint for touch-ups",
-    },
-    {
-      id: 4,
-      name: "Door Locks",
-      category: "security",
-      quantity: 12,
-      minQuantity: 8,
-      unit: "sets",
-      unitPrice: 125.0,
-      supplier: "SecureLock Inc",
-      lastRestocked: "2024-01-20",
-      location: "Security Storage",
-      status: "in_stock",
-      description: "High-security door lock sets",
-    },
-    {
-      id: 5,
-      name: "Plumbing Parts",
-      category: "plumbing",
-      quantity: 3,
-      minQuantity: 10,
-      unit: "kits",
-      unitPrice: 35.0,
-      supplier: "PlumbTech",
-      lastRestocked: "2024-01-12",
-      location: "Plumbing Storage",
-      status: "low_stock",
-      description: "Basic plumbing repair kits",
-    },
+  // Categories from API
+  const categories = [
+    { value: "all", label: t("stock.allCategories") },
+    { value: "Maintenance", label: "Maintenance" },
+    { value: "Electrical", label: "Electrical" },
+    { value: "Plumbing", label: "Plumbing" },
+    { value: "Security", label: "Security" },
+    { value: "Cleaning", label: "Cleaning" },
+    { value: "Furniture", label: "Furniture" },
   ];
 
+  const statuses = [
+    { value: "all", label: t("stock.allStatuses") || "All Statuses" },
+    { value: "In Stock", label: "In Stock" },
+    { value: "Low Stock", label: "Low Stock" },
+    { value: "Out of Stock", label: "Out of Stock" },
+  ];
+
+  // Fetch stock data on mount and when filters change
+  useEffect(() => {
+    const params = {};
+    if (categoryFilter !== "all") params.category = categoryFilter;
+    if (statusFilter !== "all") params.status = statusFilter;
+    if (searchTerm.trim()) params.search = searchTerm.trim();
+
+    dispatch(fetchStock(params));
+  }, [dispatch, categoryFilter, statusFilter, searchTerm]);
+
   const statusColors = {
-    in_stock:
+    "In Stock":
       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
-    low_stock:
+    "Low Stock":
       "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
-    out_of_stock:
+    "Out of Stock":
       "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
   };
 
   const getStatusColor = (status) => {
-    return statusColors[status] || statusColors.in_stock;
+    return statusColors[status] || statusColors["In Stock"];
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "in_stock":
+      case "In Stock":
         return <CheckCircle className="h-4 w-4" />;
-      case "low_stock":
+      case "Low Stock":
         return <AlertTriangle className="h-4 w-4" />;
-      case "out_of_stock":
+      case "Out of Stock":
         return <XCircle className="h-4 w-4" />;
       default:
         return <CheckCircle className="h-4 w-4" />;
     }
   };
 
-  const getStockTrend = (item) => {
-    // Mock trend calculation - in real app, this would be based on historical data
-    const trend = Math.random() > 0.5 ? 1 : -1;
-    return trend;
-  };
-
-  const filteredStock = stockItems.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "all" || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
   const handleAddNew = () => {
     setEditingStock(null);
     setShowForm(true);
   };
 
-  const handleEdit = (stock) => {
-    setEditingStock(stock);
+  const handleEdit = (stockItem) => {
+    setEditingStock(stockItem);
     setShowForm(true);
   };
 
-  const handleSaveStock = (stockData) => {
-    console.log("Saving stock:", stockData);
-    setShowForm(false);
-    setEditingStock(null);
+  const handleSaveStock = async (stockData) => {
+    try {
+      if (editingStock) {
+        // Update existing stock
+        const updateData = {
+          quantity: stockData.quantity,
+          unit_price: stockData.unitPrice || stockData.unit_price,
+        };
+        await dispatch(updateStock({ id: editingStock.id, data: updateData })).unwrap();
+        toast.success(t("stock.updateSuccess") || "Stock item updated successfully");
+      } else {
+        // Create new stock
+        await dispatch(createStock(stockData)).unwrap();
+        toast.success(t("stock.createSuccess") || "Stock item created successfully");
+      }
+      setShowForm(false);
+      setEditingStock(null);
+      // Refresh stock list
+      const params = {};
+      if (categoryFilter !== "all") params.category = categoryFilter;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (searchTerm.trim()) params.search = searchTerm.trim();
+      dispatch(fetchStock(params));
+    } catch (err) {
+      toast.error(err || (editingStock ? "Failed to update" : "Failed to create"));
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm(t("stock.confirmDelete") || "Are you sure you want to delete this item?")) {
+      try {
+        await dispatch(deleteStock(id)).unwrap();
+        toast.success(t("stock.deleteSuccess") || "Stock item deleted successfully");
+        // Refresh stock list
+        const params = {};
+        if (categoryFilter !== "all") params.category = categoryFilter;
+        if (statusFilter !== "all") params.status = statusFilter;
+        if (searchTerm.trim()) params.search = searchTerm.trim();
+        dispatch(fetchStock(params));
+      } catch (err) {
+        toast.error(err || "Failed to delete stock item");
+      }
+    }
   };
 
   const handleCloseForm = () => {
@@ -178,6 +161,12 @@ const Stock = () => {
       minimumFractionDigits: 2,
     }).format(amount);
   };
+
+  // Calculate statistics
+  const totalItems = stock?.length || 0;
+  const inStockCount = stock?.filter((item) => item.status === "In Stock").length || 0;
+  const lowStockCount = stock?.filter((item) => item.status === "Low Stock").length || 0;
+  const outOfStockCount = stock?.filter((item) => item.status === "Out of Stock").length || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -227,7 +216,7 @@ const Stock = () => {
                     {t("stock.totalItems")}
                   </p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {stockItems.length}
+                    {totalItems}
                   </p>
                 </div>
                 <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
@@ -249,10 +238,7 @@ const Stock = () => {
                     {t("stock.inStock")}
                   </p>
                   <p className="text-2xl font-bold text-emerald-600">
-                    {
-                      stockItems.filter((item) => item.status === "in_stock")
-                        .length
-                    }
+                    {inStockCount}
                   </p>
                 </div>
                 <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-full">
@@ -274,10 +260,7 @@ const Stock = () => {
                     {t("stock.lowStock")}
                   </p>
                   <p className="text-2xl font-bold text-amber-600">
-                    {
-                      stockItems.filter((item) => item.status === "low_stock")
-                        .length
-                    }
+                    {lowStockCount}
                   </p>
                 </div>
                 <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-full">
@@ -299,11 +282,7 @@ const Stock = () => {
                     {t("stock.outOfStock")}
                   </p>
                   <p className="text-2xl font-bold text-red-600">
-                    {
-                      stockItems.filter(
-                        (item) => item.status === "out_of_stock"
-                      ).length
-                    }
+                    {outOfStockCount}
                   </p>
                 </div>
                 <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-full">
@@ -330,7 +309,7 @@ const Stock = () => {
                 />
                 <input
                   type="text"
-                  placeholder={t("common.search")}
+                  placeholder={t("common.search") || "Search by name, category, supplier, status..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full ${
@@ -343,132 +322,150 @@ const Stock = () => {
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
               >
-                <option value="all">{t("stock.allCategories")}</option>
-                <option value="maintenance">{t("stock.maintenance")}</option>
-                <option value="electrical">{t("stock.electrical")}</option>
-                <option value="plumbing">{t("stock.plumbing")}</option>
-                <option value="security">{t("stock.security")}</option>
+                {categories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+              >
+                {statuses.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
               </select>
             </div>
           </Card>
         </motion.div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="text-center py-12">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
+
         {/* Stock Items List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStock.map((item, index) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 + 0.6 }}
-            >
-              <Card className="p-6 hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-gray-800 group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                      <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        {!isLoading && !error && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {stock?.map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 + 0.6 }}
+              >
+                <Card className="p-6 hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-gray-800 group">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                        <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {item.name}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {item.category}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {item.name}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {t(`stock.${item.category}`)}
-                      </p>
+                    <div
+                      className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                        item.status
+                      )}`}
+                    >
+                      <div className="flex items-center space-x-1 rtl:space-x-reverse">
+                        {getStatusIcon(item.status)}
+                        <span>{item.status}</span>
+                      </div>
                     </div>
                   </div>
-                  <div
-                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                      item.status
-                    )}`}
-                  >
-                    <div className="flex items-center space-x-1 rtl:space-x-reverse">
-                      {getStatusIcon(item.status)}
-                      <span>{t(`stock.${item.status}`)}</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("stock.quantity")}:
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {item.quantity} {item.unit}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("stock.unitPrice")}:
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(item.unitPrice)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("stock.supplier")}:
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {item.supplier}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t("stock.location")}:
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {item.location}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                    {getStockTrend(item) > 0 ? (
-                      <TrendingUp className="h-4 w-4 text-emerald-500" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {t("stock.quantity")}:
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.quantity} {item.unit_of_measure || "Pieces"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {t("stock.unitPrice")}:
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(parseFloat(item.unit_price || 0))}
+                      </span>
+                    </div>
+                    {item.total_value && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Total Value:
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(parseFloat(item.total_value))}
+                        </span>
+                      </div>
                     )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("stock.lastRestocked")}:{" "}
-                      {new Date(item.lastRestocked).toLocaleDateString()}
-                    </span>
+                    {item.supplier_name && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {t("stock.supplier")}:
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {item.supplier_name}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex space-x-2 rtl:space-x-reverse">
-                    <Link to={`/stock/${item.id}`}>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.created_at && new Date(item.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex space-x-2 rtl:space-x-reverse">
                       <Button
                         size="sm"
                         variant="outline"
-                        title={t("stock.view")}
+                        title={t("stock.edit")}
+                        onClick={() => handleEdit(item)}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Edit className="h-4 w-4" />
                       </Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      title={t("stock.edit")}
-                      onClick={() => handleEdit(item)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      title={t("stock.delete")}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title={t("stock.delete")}
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
-        {filteredStock.length === 0 && (
+        {!isLoading && !error && stock?.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -33,6 +33,7 @@ const resources = {
       "nav.reviews": "Reviews",
       "nav.reservation": "Reservation",
       "nav.stock": "Stock",
+      "nav.citiesDistricts": "Cities & Districts",
 
       // Auth
       "auth.login": "Login",
@@ -112,6 +113,15 @@ const resources = {
       "units.name": "Name",
       "units.email": "Email",
       "units.phone": "Phone",
+      "units.location": "Location",
+      "units.viewOnMap": "View on Map",
+      "units.perDay": "per day",
+      "units.city": "City",
+      "units.district": "District",
+      "units.editUnit": "Edit Unit",
+      "units.newReservation": "New Reservation",
+      "units.backToUnits": "Back to Units",
+      "units.unitNotFound": "Unit not found",
 
       // Tenants
       "tenants.title": "Tenants Management",
@@ -411,6 +421,16 @@ const resources = {
       "dashboard.unitInspectionCompleted": "Unit inspection completed",
       "dashboard.currentTenant": "Current Tenant",
       "dashboard.perMonth": "per month",
+      "dashboard.stockItems": "Stock Items",
+      "dashboard.inStock": "In Stock",
+      "dashboard.minutesAgo": "minutes ago",
+      "dashboard.hoursAgo": "hours ago",
+      "dashboard.daysAgo": "days ago",
+      "dashboard.noActivity": "No Recent Activity",
+      "dashboard.noActivityDescription": "No notifications available at the moment",
+      "dashboard.manager": "Manager",
+      "dashboard.period6Months": "6M",
+      "dashboard.unknown": "Unknown",
 
       // Units specific
       "units.manageUnits": "Manage your property units and their details",
@@ -691,6 +711,7 @@ const resources = {
       "nav.reviews": "التقييمات",
       "nav.reservation": "الحجوزات",
       "nav.stock": "المخزون",
+      "nav.citiesDistricts": "المدن والأحياء",
 
       // Auth
       "auth.login": "تسجيل الدخول",
@@ -769,6 +790,15 @@ const resources = {
       "units.name": "الاسم",
       "units.email": "البريد الإلكتروني",
       "units.phone": "الهاتف",
+      "units.location": "الموقع",
+      "units.viewOnMap": "عرض على الخريطة",
+      "units.perDay": "يومياً",
+      "units.city": "المدينة",
+      "units.district": "الحي",
+      "units.editUnit": "تعديل الوحدة",
+      "units.newReservation": "حجز جديد",
+      "units.backToUnits": "العودة إلى الوحدات",
+      "units.unitNotFound": "الوحدة غير موجودة",
 
       // Tenants
       "tenants.title": "إدارة المستأجرين",
@@ -1119,6 +1149,16 @@ const resources = {
       "dashboard.unitInspectionCompleted": "تم إكمال فحص الوحدة",
       "dashboard.currentTenant": "المستأجر الحالي",
       "dashboard.perMonth": "شهرياً",
+      "dashboard.stockItems": "عناصر المخزون",
+      "dashboard.inStock": "متوفر",
+      "dashboard.minutesAgo": "دقائق مضت",
+      "dashboard.hoursAgo": "ساعات مضت",
+      "dashboard.daysAgo": "أيام مضت",
+      "dashboard.noActivity": "لا يوجد نشاط حديث",
+      "dashboard.noActivityDescription": "لا توجد إشعارات متاحة في الوقت الحالي",
+      "dashboard.manager": "مدير",
+      "dashboard.period6Months": "6ش",
+      "dashboard.unknown": "غير معروف",
 
       // Units specific
       "units.manageUnits": "إدارة وحدات العقارات وتفاصيلها",
