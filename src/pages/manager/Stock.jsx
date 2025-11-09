@@ -3,7 +3,14 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { fetchStock, createStock, updateStock, deleteStock } from "../../store/slices/stockSlice";
+import {
+  fetchStock,
+  createStock,
+  updateStock,
+  deleteStock,
+  fetchStockById,
+  clearCurrentItem,
+} from "../../store/slices/stockSlice";
 import {
   Search,
   Plus,
@@ -39,6 +46,7 @@ const Stock = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
+  const [isFetchingStock, setIsFetchingStock] = useState(false);
 
   // Categories from API
   const categories = [
@@ -57,6 +65,26 @@ const Stock = () => {
     { value: "Low Stock", label: "Low Stock" },
     { value: "Out of Stock", label: "Out of Stock" },
   ];
+
+  const buildStockPayload = (data) => {
+    const autoDeduct = Boolean(data.auto_deduct_on_rent_end ?? data.autoDeduct);
+    const rentEndQuantityRaw =
+      data.rent_end_quantity ?? data.rentEndQuantity ?? "";
+    const rentEndQuantity = autoDeduct ? Number(rentEndQuantityRaw || 0) : null;
+
+    return {
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      quantity: Number(data.quantity || 0),
+      lower_quantity: Number(data.lower_quantity ?? data.minQuantity ?? 0),
+      unit_of_measure: data.unit_of_measure || data.unit,
+      unit_price: data.unit_price || data.unitPrice,
+      supplier_name: data.supplier_name || data.supplier,
+      auto_deduct_on_rent_end: autoDeduct,
+      rent_end_quantity: rentEndQuantity,
+    };
+  };
 
   // Fetch stock data on mount and when filters change
   useEffect(() => {
@@ -99,28 +127,53 @@ const Stock = () => {
     setShowForm(true);
   };
 
-  const handleEdit = (stockItem) => {
+  const handleEdit = async (stockItem) => {
+    if (!stockItem?.id) return;
+
     setEditingStock(stockItem);
     setShowForm(true);
+    setIsFetchingStock(true);
+
+    try {
+      const detailedItem = await dispatch(
+        fetchStockById(stockItem.id)
+      ).unwrap();
+      if (detailedItem) {
+        setEditingStock(detailedItem);
+      }
+    } catch (err) {
+      console.error("Failed to fetch stock item:", err);
+      toast.error(
+        direction === "rtl"
+          ? "تعذر تحميل بيانات عنصر المخزون"
+          : "Unable to load stock item details"
+      );
+    } finally {
+      setIsFetchingStock(false);
+    }
   };
 
   const handleSaveStock = async (stockData) => {
     try {
+      const payload = buildStockPayload(stockData);
+
       if (editingStock) {
-        // Update existing stock
-        const updateData = {
-          quantity: stockData.quantity,
-          unit_price: stockData.unitPrice || stockData.unit_price,
-        };
-        await dispatch(updateStock({ id: editingStock.id, data: updateData })).unwrap();
-        toast.success(t("stock.updateSuccess") || "Stock item updated successfully");
+        await dispatch(
+          updateStock({ id: editingStock.id, data: payload })
+        ).unwrap();
+        toast.success(
+          t("stock.updateSuccess") || "Stock item updated successfully"
+        );
       } else {
-        // Create new stock
-        await dispatch(createStock(stockData)).unwrap();
-        toast.success(t("stock.createSuccess") || "Stock item created successfully");
+        await dispatch(createStock(payload)).unwrap();
+        toast.success(
+          t("stock.createSuccess") || "Stock item created successfully"
+        );
       }
       setShowForm(false);
       setEditingStock(null);
+      dispatch(clearCurrentItem());
+      setIsFetchingStock(false);
       // Refresh stock list
       const params = {};
       if (categoryFilter !== "all") params.category = categoryFilter;
@@ -128,15 +181,24 @@ const Stock = () => {
       if (searchTerm.trim()) params.search = searchTerm.trim();
       dispatch(fetchStock(params));
     } catch (err) {
-      toast.error(err || (editingStock ? "Failed to update" : "Failed to create"));
+      toast.error(
+        err || (editingStock ? "Failed to update" : "Failed to create")
+      );
+      setIsFetchingStock(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm(t("stock.confirmDelete") || "Are you sure you want to delete this item?")) {
+    if (
+      window.confirm(
+        t("stock.confirmDelete") || "Are you sure you want to delete this item?"
+      )
+    ) {
       try {
         await dispatch(deleteStock(id)).unwrap();
-        toast.success(t("stock.deleteSuccess") || "Stock item deleted successfully");
+        toast.success(
+          t("stock.deleteSuccess") || "Stock item deleted successfully"
+        );
         // Refresh stock list
         const params = {};
         if (categoryFilter !== "all") params.category = categoryFilter;
@@ -152,6 +214,8 @@ const Stock = () => {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingStock(null);
+    dispatch(clearCurrentItem());
+    setIsFetchingStock(false);
   };
 
   const formatCurrency = (amount) => {
@@ -164,9 +228,12 @@ const Stock = () => {
 
   // Calculate statistics
   const totalItems = stock?.length || 0;
-  const inStockCount = stock?.filter((item) => item.status === "In Stock").length || 0;
-  const lowStockCount = stock?.filter((item) => item.status === "Low Stock").length || 0;
-  const outOfStockCount = stock?.filter((item) => item.status === "Out of Stock").length || 0;
+  const inStockCount =
+    stock?.filter((item) => item.status === "In Stock").length || 0;
+  const lowStockCount =
+    stock?.filter((item) => item.status === "Low Stock").length || 0;
+  const outOfStockCount =
+    stock?.filter((item) => item.status === "Out of Stock").length || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -309,7 +376,10 @@ const Stock = () => {
                 />
                 <input
                   type="text"
-                  placeholder={t("common.search") || "Search by name, category, supplier, status..."}
+                  placeholder={
+                    t("common.search") ||
+                    "Search by name, category, supplier, status..."
+                  }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full ${
@@ -437,7 +507,8 @@ const Stock = () => {
                   <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {item.created_at && new Date(item.created_at).toLocaleDateString()}
+                        {item.created_at &&
+                          new Date(item.created_at).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex space-x-2 rtl:space-x-reverse">
@@ -490,6 +561,7 @@ const Stock = () => {
             onSave={handleSaveStock}
             onCancel={handleCloseForm}
             isEdit={!!editingStock}
+            isLoading={isFetchingStock}
           />
         )}
       </div>

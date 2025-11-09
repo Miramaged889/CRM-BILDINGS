@@ -42,7 +42,7 @@ import {
 import { fetchOwners } from "../../store/slices/ownersSlice";
 import { fetchTenants } from "../../store/slices/tenantsSlice";
 import { payOwner, fetchOwnerPayments } from "../../store/slices/paymentsSlice";
-import { getRents } from "../../services/api";
+import { getRents, getOccasionalPayments } from "../../services/api";
 import toast from "react-hot-toast";
 
 const Payments = () => {
@@ -74,6 +74,8 @@ const Payments = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
   const [selectedUnitId, setSelectedUnitId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Owner payments state
   const [showOwnerPaymentsModal, setShowOwnerPaymentsModal] = useState(false);
@@ -82,6 +84,11 @@ const Payments = () => {
   const [ownerSearchTerm, setOwnerSearchTerm] = useState("");
   const [rents, setRents] = useState([]);
   const [loadingRents, setLoadingRents] = useState(false);
+  const [occasionalPayments, setOccasionalPayments] = useState([]);
+  const [loadingOccasional, setLoadingOccasional] = useState(false);
+  const [occasionalError, setOccasionalError] = useState(null);
+  const [occasionalPage, setOccasionalPage] = useState(1);
+  const occasionalItemsPerPage = 10;
 
   // Fetch units, owners, tenants and payments on mount
   useEffect(() => {
@@ -109,6 +116,70 @@ const Payments = () => {
 
     fetchAllRents();
   }, []);
+
+  const loadOccasionalPayments = React.useCallback(async () => {
+    try {
+      setLoadingOccasional(true);
+      setOccasionalError(null);
+      const response = await getOccasionalPayments();
+      const rawList = Array.isArray(response?.results)
+        ? response.results
+        : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+      const formatted = rawList.map((payment, index) => {
+        const unitId =
+          payment.unit_id ??
+          (typeof payment.unit === "object" ? payment.unit?.id : payment.unit);
+        const unitName =
+          payment.unit_name ??
+          (typeof payment.unit === "object"
+            ? payment.unit?.name
+            : payment.unit_name || (unitId ? `Unit ${unitId}` : "-"));
+        return {
+          ...payment,
+          id: payment.id || `occ_${index}`,
+          unit_id: unitId,
+          unit_name: unitName,
+          payment_type: "occasional",
+        };
+      });
+      setOccasionalPayments(formatted);
+    } catch (error) {
+      const message =
+        error?.message ||
+        (direction === "rtl"
+          ? "فشل تحميل الدفعات العرضية"
+          : "Failed to load occasional payments");
+      setOccasionalError(message);
+      toast.error(message);
+    } finally {
+      setLoadingOccasional(false);
+    }
+  }, [direction]);
+
+  useEffect(() => {
+    loadOccasionalPayments();
+  }, [loadOccasionalPayments]);
+
+  useEffect(() => {
+    if (
+      activeTab === "occasional-payments" &&
+      !loadingOccasional &&
+      occasionalPayments.length === 0 &&
+      !occasionalError
+    ) {
+      loadOccasionalPayments();
+    }
+  }, [
+    activeTab,
+    loadingOccasional,
+    occasionalPayments.length,
+    occasionalError,
+    loadOccasionalPayments,
+  ]);
 
   // Fetch payments for all units
   useEffect(() => {
@@ -221,6 +292,65 @@ const Payments = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const filteredOccasionalPayments = occasionalPayments.filter((payment) => {
+    const matchesSearch =
+      (payment.unit_name || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (payment.category || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (payment.notes || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || payment.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPayments.length / itemsPerPage)
+  );
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const pagedPayments = filteredPayments.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  const occasionalTotalPages = Math.max(
+    1,
+    Math.ceil(filteredOccasionalPayments.length / occasionalItemsPerPage)
+  );
+  const occasionalStartIndex = (occasionalPage - 1) * occasionalItemsPerPage;
+  const pagedOccasionalPayments = filteredOccasionalPayments.slice(
+    occasionalStartIndex,
+    occasionalStartIndex + occasionalItemsPerPage
+  );
+
+  const totalOccasionalAmount = filteredOccasionalPayments.reduce(
+    (sum, payment) => sum + parseFloat(payment.amount || 0),
+    0
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  useEffect(() => {
+    setOccasionalPage(1);
+  }, [searchTerm, categoryFilter, activeTab]);
+
+  useEffect(() => {
+    if (occasionalPage > occasionalTotalPages) {
+      setOccasionalPage(occasionalTotalPages);
+    }
+  }, [occasionalTotalPages, occasionalPage]);
+
   // Handler functions
   const handleAddNew = () => {
     setEditingPayment(null);
@@ -281,6 +411,7 @@ const Payments = () => {
         dispatch(fetchUnitPayments(unitId));
         // Refresh company revenue
         dispatch(fetchCompanyRevenue());
+        loadOccasionalPayments();
       }
       setShowForm(false);
       setEditingPayment(null);
@@ -320,6 +451,7 @@ const Payments = () => {
       dispatch(fetchUnitPayments(payment.unit_id));
       // Refresh company revenue
       dispatch(fetchCompanyRevenue());
+      loadOccasionalPayments();
     } catch (err) {
       toast.error(
         err ||
@@ -1157,7 +1289,7 @@ const Payments = () => {
           </p>
         </div>
 
-        {activeTab === "unit-payments" && (
+        {activeTab === "occasional-payments" && (
           <div className="mt-6 sm:mt-0 flex flex-row justify-end gap-3">
             <Button
               size="lg"
@@ -1193,6 +1325,23 @@ const Payments = () => {
               <Building className="h-5 w-5" />
               <span>
                 {direction === "rtl" ? "دفعات الوحدات" : "Unit Payments"}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("occasional-payments")}
+            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+              activeTab === "occasional-payments"
+                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              <span>
+                {direction === "rtl"
+                  ? "الدفعات العرضية"
+                  : "Occasional Payments"}
               </span>
             </div>
           </button>
@@ -1420,7 +1569,7 @@ const Payments = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredPayments.map((payment, index) => (
+                      {pagedPayments.map((payment, index) => (
                         <motion.tr
                           key={payment.id}
                           initial={{ opacity: 0, y: 20 }}
@@ -1565,6 +1714,55 @@ const Payments = () => {
                   </table>
                 </div>
 
+                {filteredPayments.length > itemsPerPage && (
+                  <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {direction === "rtl"
+                        ? `عرض ${(startIndex + 1).toLocaleString()}-${Math.min(
+                            startIndex + itemsPerPage,
+                            filteredPayments.length
+                          ).toLocaleString()} من ${filteredPayments.length.toLocaleString()}`
+                        : `Showing ${(
+                            startIndex + 1
+                          ).toLocaleString()}-${Math.min(
+                            startIndex + itemsPerPage,
+                            filteredPayments.length
+                          ).toLocaleString()} of ${filteredPayments.length.toLocaleString()}`}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                      >
+                        {direction === "rtl" ? "السابق" : "Previous"}
+                      </Button>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {direction === "rtl"
+                          ? `صفحة ${currentPage} من ${totalPages}`
+                          : `Page ${currentPage} of ${totalPages}`}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1)
+                          )
+                        }
+                        disabled={currentPage === totalPages}
+                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                      >
+                        {direction === "rtl" ? "التالي" : "Next"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {filteredPayments.length === 0 && (
                   <div className="text-center py-12">
                     <div className="mb-4">
@@ -1581,6 +1779,274 @@ const Payments = () => {
               </div>
             </Card>
           </motion.div>
+        </>
+      )}
+
+      {/* Occasional Payments Content */}
+      {activeTab === "occasional-payments" && (
+        <>
+          {loadingOccasional ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-center py-12"
+            >
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">
+                  {direction === "rtl" ? "جاري التحميل..." : "Loading..."}
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <Card className="shadow-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <div className="p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {direction === "rtl"
+                          ? "الدفعات العرضية"
+                          : "Occasional Payments"}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {direction === "rtl"
+                          ? `إجمالي: $${totalOccasionalAmount.toLocaleString(
+                              "en-US"
+                            )}`
+                          : `Total: $${totalOccasionalAmount.toLocaleString(
+                              "en-US"
+                            )}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadOccasionalPayments}
+                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                      >
+                        {direction === "rtl" ? "تحديث" : "Refresh"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {occasionalError && (
+                    <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-300">
+                      {occasionalError}
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            {direction === "rtl" ? "الوحدة" : "Unit"}
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            {direction === "rtl" ? "الفئة" : "Category"}
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            {t("payments.amount")}
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            {t("payments.method")}
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            {t("payments.date")}
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            {t("common.actions")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedOccasionalPayments.map((payment, index) => (
+                          <motion.tr
+                            key={payment.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200"
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                                  <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900 dark:text-white">
+                                    {payment.unit_name ||
+                                      `Unit ${payment.unit_id || "-"}`}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                                {translateCategory(payment.category)}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center">
+                                <DollarSign className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-1" />
+                                <span className="font-medium text-gray-900 dark:text-white">
+                                  $
+                                  {parseFloat(
+                                    payment.amount || 0
+                                  ).toLocaleString()}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-gray-700 dark:text-gray-300">
+                              {translateMethod(
+                                payment.payment_method || payment.method
+                              )}
+                            </td>
+                            <td className="py-4 px-4 text-gray-700 dark:text-gray-300">
+                              {payment.payment_date || payment.date
+                                ? new Date(
+                                    payment.payment_date || payment.date
+                                  ).toLocaleDateString(
+                                    direction === "rtl" ? "ar-EG" : "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                      calendar: "gregory",
+                                    }
+                                  )
+                                : direction === "rtl"
+                                ? "غير متاح"
+                                : "Not available"}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex space-x-2 rtl:space-x-reverse">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  title={direction === "rtl" ? "عرض" : "View"}
+                                  onClick={() => handleView(payment)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  title={direction === "rtl" ? "تعديل" : "Edit"}
+                                  onClick={() => handleEdit(payment)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                  title={
+                                    direction === "rtl" ? "طباعة" : "Print"
+                                  }
+                                  onClick={() => handlePrint(payment)}
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-300 dark:border-red-600 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  title={direction === "rtl" ? "حذف" : "Delete"}
+                                  onClick={() => handleDeletePayment(payment)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {filteredOccasionalPayments.length >
+                    occasionalItemsPerPage && (
+                    <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {direction === "rtl"
+                          ? `عرض ${(
+                              occasionalStartIndex + 1
+                            ).toLocaleString()}-${Math.min(
+                              occasionalStartIndex + occasionalItemsPerPage,
+                              filteredOccasionalPayments.length
+                            ).toLocaleString()} من ${filteredOccasionalPayments.length.toLocaleString()}`
+                          : `Showing ${(
+                              occasionalStartIndex + 1
+                            ).toLocaleString()}-${Math.min(
+                              occasionalStartIndex + occasionalItemsPerPage,
+                              filteredOccasionalPayments.length
+                            ).toLocaleString()} of ${filteredOccasionalPayments.length.toLocaleString()}`}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setOccasionalPage((prev) => Math.max(1, prev - 1))
+                          }
+                          disabled={occasionalPage === 1}
+                          className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                        >
+                          {direction === "rtl" ? "السابق" : "Previous"}
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {direction === "rtl"
+                            ? `صفحة ${occasionalPage} من ${occasionalTotalPages}`
+                            : `Page ${occasionalPage} of ${occasionalTotalPages}`}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setOccasionalPage((prev) =>
+                              Math.min(occasionalTotalPages, prev + 1)
+                            )
+                          }
+                          disabled={occasionalPage === occasionalTotalPages}
+                          className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                        >
+                          {direction === "rtl" ? "التالي" : "Next"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredOccasionalPayments.length === 0 &&
+                    !loadingOccasional && (
+                      <div className="text-center py-12">
+                        <div className="mb-4">
+                          <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                          {direction === "rtl"
+                            ? "لا توجد دفعات عرضية"
+                            : "No occasional payments found"}
+                        </h3>
+                        <p className="text-gray-400 dark:text-gray-500">
+                          {direction === "rtl"
+                            ? "جرب تغيير معايير البحث"
+                            : "Try adjusting your search criteria"}
+                        </p>
+                      </div>
+                    )}
+                </div>
+              </Card>
+            </motion.div>
+          )}
         </>
       )}
 

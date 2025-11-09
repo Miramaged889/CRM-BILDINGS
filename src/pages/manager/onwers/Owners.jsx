@@ -12,11 +12,9 @@ import {
   Mail,
   User,
   Building2,
-  Star,
   Edit,
   Trash2,
   Eye,
-  Filter,
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
@@ -32,7 +30,6 @@ const Owners = () => {
   const { owners, isLoading, error } = useAppSelector((state) => state.owners);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [ratingFilter, setRatingFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editingOwner, setEditingOwner] = useState(null);
 
@@ -41,27 +38,17 @@ const Owners = () => {
     dispatch(fetchOwners());
   }, [dispatch]);
 
-  const filtered = owners?.filter((o) => {
-    const fullName = o.full_name || o.name || '';
-    const email = o.email || '';
-    const phone = o.phone || '';
-    const address = o.address || '';
-    
-    const matchesSearch = [fullName, email, phone, address].some((v) =>
-      v.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    const rating = parseFloat(o.rate || o.rating || 0);
-    const matchesRating =
-      ratingFilter === "all" || Math.floor(rating) === parseInt(ratingFilter);
-    return matchesSearch && matchesRating;
-  }) || [];
+  const filtered =
+    owners?.filter((o) => {
+      const fullName = o.full_name || o.name || "";
+      const email = o.email || "";
+      const phone = o.phone || "";
+      const address = o.address || "";
 
-  // Get unique ratings for filter options
-  const ratings = [
-    ...new Set(
-      owners?.map((owner) => Math.floor(parseFloat(owner.rate || owner.rating || 0))) || []
-    ),
-  ].sort((a, b) => b - a);
+      return [fullName, email, phone, address].some((v) =>
+        v.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }) || [];
 
   const handleViewDetails = (owner, event) => {
     event.stopPropagation();
@@ -110,8 +97,7 @@ const Owners = () => {
           full_name: ownerData.name,
           email: ownerData.email,
           phone: ownerData.phone,
-          address: ownerData.address || '',
-          rate: ownerData.rate || parseFloat(ownerData.rating || '0'),
+          address: ownerData.address || "",
         };
         await dispatch(updateOwner({ id: editingOwner.id, data: updateData })).unwrap();
         toast.success(t("owners.updateSuccess") || "Owner updated successfully");
@@ -121,8 +107,7 @@ const Owners = () => {
           full_name: ownerData.name,
           email: ownerData.email,
           phone: ownerData.phone,
-          address: ownerData.address || '',
-          rate: ownerData.rate || 0,
+          address: ownerData.address || "",
         };
         await dispatch(createOwner(createData)).unwrap();
         toast.success(t("owners.createSuccess") || "Owner created successfully");
@@ -231,14 +216,6 @@ const Owners = () => {
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {o.full_name || o.name}
                       </h3>
-                      <div className="flex items-center text-amber-500 text-sm">
-                        <Star className="h-4 w-4 fill-current" />
-                        <span
-                          className={`${direction === "rtl" ? "mr-1" : "ml-1"}`}
-                        >
-                          {parseFloat(o.rate || o.rating || 0).toFixed(1)}
-                        </span>
-                      </div>
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300">

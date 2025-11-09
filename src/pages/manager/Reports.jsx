@@ -96,6 +96,50 @@ const Reports = () => {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  const parseAmount = (value) => {
+    const numeric =
+      value === null || value === undefined || value === ""
+        ? 0
+        : typeof value === "string"
+        ? parseFloat(value)
+        : Number(value);
+    return Number.isFinite(numeric) ? Number(numeric.toFixed(2)) : 0;
+  };
+
+  const companyTotals = React.useMemo(() => {
+    const totalRevenue = parseAmount(companyRevenue?.total);
+    const ownerRevenue = parseAmount(companyRevenue?.owner_total);
+    const expenses = parseAmount(companyRevenue?.total_occasional);
+    const computedSystem = totalRevenue - ownerRevenue;
+    const systemRevenue = Math.max(0, Number(computedSystem.toFixed(2)));
+    return {
+      totalRevenue,
+      ownerRevenue,
+      systemRevenue,
+      expenses,
+    };
+  }, [companyRevenue]);
+
+  const ownerSummaries = React.useMemo(() => {
+    const summaries = {};
+    if (ownerPayments) {
+      Object.entries(ownerPayments).forEach(([ownerId, data]) => {
+        const totalRevenue = parseAmount(data?.total);
+        const ownerRevenue = parseAmount(data?.owner_total);
+        const expenses = parseAmount(data?.total_occasional);
+        const computedSystem = totalRevenue - ownerRevenue;
+        const systemRevenue = Math.max(0, Number(computedSystem.toFixed(2)));
+        summaries[ownerId] = {
+          totalRevenue,
+          ownerRevenue,
+          systemRevenue,
+          expenses,
+        };
+      });
+    }
+    return summaries;
+  }, [ownerPayments]);
+
   // Fetch owners and revenue data on mount
   useEffect(() => {
     dispatch(fetchOwners());
@@ -170,82 +214,49 @@ const Reports = () => {
   const getFilteredData = () => {
     const { monthLabels } = generateDateBasedData();
 
-    // If specific owner selected, use their data
-    if (selectedOwner !== "all" && ownerPayments[selectedOwner]) {
-      const ownerData = ownerPayments[selectedOwner];
-      const totalRevenue = parseFloat(ownerData.total || 0);
-      const ownerTotal = parseFloat(ownerData.owner_total || 0);
-      const ownerPercentage =
-        totalRevenue > 0 ? (ownerTotal / totalRevenue) * 100 : 0;
-      const occasionalTotal = parseFloat(ownerData.total_occasional || 0);
-      const expensesPercentage =
-        totalRevenue > 0 ? (occasionalTotal / totalRevenue) * 100 : 0;
-      const companyTotal = parseFloat(ownerData.company_total || 0);
-      const systemManagerPercentage =
-        totalRevenue > 0 ? (companyTotal / totalRevenue) * 100 : 0;
+    const activeSummary =
+      selectedOwner !== "all"
+        ? ownerSummaries[selectedOwner] || {
+            totalRevenue: 0,
+            ownerRevenue: 0,
+            systemRevenue: 0,
+            expenses: 0,
+          }
+        : companyTotals;
 
-      // Generate monthly data based on owner's units
-      const generateMonthlyData = (baseAmount) => {
-        return monthLabels.map(() => {
-          const randomFactor = 0.8 + Math.random() * 0.4;
-          return Math.round(baseAmount * randomFactor);
-        });
-      };
+    const totalRevenue = activeSummary.totalRevenue;
+    const ownerRevenue = activeSummary.ownerRevenue;
+    const expenses = activeSummary.expenses;
+    const systemRevenue = activeSummary.systemRevenue;
+    const ownerPercentage =
+      totalRevenue > 0 ? (ownerRevenue / totalRevenue) * 100 : 0;
+    const expensesPercentage =
+      totalRevenue > 0 ? (expenses / totalRevenue) * 100 : 0;
+    const systemManagerPercentage =
+      totalRevenue > 0 ? (systemRevenue / totalRevenue) * 100 : 0;
 
-      return {
-        totalRevenue,
-        ownerPercentage,
-        expensesPercentage,
-        systemManagerPercentage,
-        monthlyRevenue: generateMonthlyData(totalRevenue / monthLabels.length),
-        monthlyExpenses: generateMonthlyData(
-          occasionalTotal / monthLabels.length
-        ),
-        revenueGrowth: 0, // Calculate from API data if available
-      };
-    }
+    const generateMonthlyData = (baseAmount) =>
+      monthLabels.map(() =>
+        baseAmount > 0
+          ? Math.max(
+              0,
+              Number((baseAmount * (0.8 + Math.random() * 0.4)).toFixed(2))
+            )
+          : 0
+      );
 
-    // Use company revenue data for "all owners"
-    if (companyRevenue) {
-      const totalRevenue = parseFloat(companyRevenue.total || 0);
-      const ownerTotal = parseFloat(companyRevenue.owner_total || 0);
-      const ownerPercentage =
-        totalRevenue > 0 ? (ownerTotal / totalRevenue) * 100 : 0;
-      const occasionalTotal = parseFloat(companyRevenue.total_occasional || 0);
-      const expensesPercentage =
-        totalRevenue > 0 ? (occasionalTotal / totalRevenue) * 100 : 0;
-      const companyTotal = parseFloat(companyRevenue.company_total || 0);
-      const systemManagerPercentage =
-        totalRevenue > 0 ? (companyTotal / totalRevenue) * 100 : 0;
+    const monthsCount = monthLabels.length || 1;
 
-      const generateMonthlyData = (baseAmount) => {
-        return monthLabels.map(() => {
-          const randomFactor = 0.8 + Math.random() * 0.4;
-          return Math.round(baseAmount * randomFactor);
-        });
-      };
-
-      return {
-        totalRevenue,
-        ownerPercentage,
-        expensesPercentage,
-        systemManagerPercentage,
-        monthlyRevenue: generateMonthlyData(totalRevenue / monthLabels.length),
-        monthlyExpenses: generateMonthlyData(
-          occasionalTotal / monthLabels.length
-        ),
-        revenueGrowth: 0,
-      };
-    }
-
-    // Fallback to default data if API data not available
     return {
-      totalRevenue: 0,
-      ownerPercentage: 0,
-      expensesPercentage: 0,
-      systemManagerPercentage: 0,
-      monthlyRevenue: monthLabels.map(() => 0),
-      monthlyExpenses: monthLabels.map(() => 0),
+      totalRevenue,
+      ownerRevenue,
+      systemRevenue,
+      expenses,
+      ownerPercentage,
+      expensesPercentage,
+      systemManagerPercentage,
+      monthlyRevenue: generateMonthlyData(totalRevenue / monthsCount),
+      monthlyExpenses: generateMonthlyData(expenses / monthsCount),
       revenueGrowth: 0,
     };
   };
@@ -402,7 +413,8 @@ const Reports = () => {
   };
 
   const formatPercentage = (value) => {
-    return `${value.toFixed(1)}%`;
+    const numeric = Number.isFinite(value) ? value : 0;
+    return `${numeric.toFixed(1)}%`;
   };
 
   const handleDateRangeChange = (field, value) => {
@@ -841,16 +853,16 @@ const Reports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {direction === "rtl" ? "نسبة المالك" : "Owner Percentage"}
+                    {direction === "rtl" ? "إيرادات المالك" : "Owner Revenue"}
                   </p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {formatPercentage(filteredData.ownerPercentage)}
+                    {formatCurrency(filteredData.ownerRevenue)}
                   </p>
                   <div className="flex items-center mt-1">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {direction === "rtl"
-                        ? "من إجمالي الإيرادات"
-                        : "of total revenue"}
+                        ? `(${formatPercentage(filteredData.ownerPercentage)})`
+                        : `(${formatPercentage(filteredData.ownerPercentage)})`}
                     </span>
                   </div>
                 </div>
@@ -870,18 +882,20 @@ const Reports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {direction === "rtl"
-                      ? "نسبة المصروفات"
-                      : "Expenses Percentage"}
+                    {direction === "rtl" ? "مصروفات إجمالية" : "Total Expenses"}
                   </p>
                   <p className="text-2xl font-bold text-red-600">
-                    {formatPercentage(filteredData.expensesPercentage)}
+                    {formatCurrency(filteredData.expenses)}
                   </p>
                   <div className="flex items-center mt-1">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {direction === "rtl"
-                        ? "من إجمالي الإيرادات"
-                        : "of total revenue"}
+                        ? `(${formatPercentage(
+                            filteredData.expensesPercentage
+                          )})`
+                        : `(${formatPercentage(
+                            filteredData.expensesPercentage
+                          )})`}
                     </span>
                   </div>
                 </div>
@@ -901,18 +915,20 @@ const Reports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {direction === "rtl"
-                      ? "نسبة مدير النظام"
-                      : "System Manager Percentage"}
+                    {direction === "rtl" ? "إيرادات النظام" : "System Revenue"}
                   </p>
                   <p className="text-2xl font-bold text-purple-600">
-                    {formatPercentage(filteredData.systemManagerPercentage)}
+                    {formatCurrency(filteredData.systemRevenue)}
                   </p>
                   <div className="flex items-center mt-1">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {direction === "rtl"
-                        ? "من إجمالي الإيرادات"
-                        : "of total revenue"}
+                        ? `(${formatPercentage(
+                            filteredData.systemManagerPercentage
+                          )})`
+                        : `(${formatPercentage(
+                            filteredData.systemManagerPercentage
+                          )})`}
                     </span>
                   </div>
                 </div>
@@ -923,6 +939,56 @@ const Reports = () => {
             </Card>
           </motion.div>
         </div>
+
+        {/* Aggregated Financial Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <Card className="p-6 shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-500" />
+              {direction === "rtl"
+                ? "ملخص الإيرادات العامة"
+                : "Overall Revenue Summary"}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {direction === "rtl" ? "إجمالي الإيرادات" : "Total Revenue"}
+                </p>
+                <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(companyTotals.totalRevenue)}
+                </p>
+              </div>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {direction === "rtl" ? "إيرادات الملاك" : "Owner Revenue"}
+                </p>
+                <p className="text-xl font-semibold text-blue-600 dark:text-blue-400">
+                  {formatCurrency(companyTotals.ownerRevenue)}
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {direction === "rtl" ? "إيرادات النظام" : "System Revenue"}
+                </p>
+                <p className="text-xl font-semibold text-purple-600 dark:text-purple-400">
+                  {formatCurrency(companyTotals.systemRevenue)}
+                </p>
+              </div>
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {direction === "rtl" ? "إجمالي المصروفات" : "Total Expenses"}
+                </p>
+                <p className="text-xl font-semibold text-red-600 dark:text-red-400">
+                  {formatCurrency(companyTotals.expenses)}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
 
         {/* Filters Section */}
         <motion.div

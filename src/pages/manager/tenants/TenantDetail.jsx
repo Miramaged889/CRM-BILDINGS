@@ -45,7 +45,6 @@ import {
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
-import Avatar from "../../../components/ui/Avatar";
 import { LeaseForm, LeaseViewModal } from "../../../components/manger form";
 import { ReviewForm, ReviewViewModal } from "../../../components/manger form";
 import { getRents, deleteRent } from "../../../services/api";
@@ -455,7 +454,9 @@ const TenantDetail = () => {
                     : "space-x-4"
                 }`}
               >
-                <Avatar src={tenant.avatar} alt={tenant.name} size="xl" />
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl">
+                  {(tenant.name || "?").charAt(0).toUpperCase()}
+                </div>
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
                     {tenant.name}

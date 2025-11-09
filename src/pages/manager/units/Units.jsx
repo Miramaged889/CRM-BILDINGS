@@ -9,6 +9,7 @@ import {
   updateUnit,
   deleteUnit,
   clearError,
+  fetchUnitById,
 } from "../../../store/slices/unitsSlice";
 import {
   Search,
@@ -42,7 +43,8 @@ const Units = () => {
   const [toDate, setToDate] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState(null);
-
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [isFetchingUnit, setIsFetchingUnit] = useState(false);
   // Fetch units on mount
   useEffect(() => {
     dispatch(fetchUnits());
@@ -91,6 +93,54 @@ const Units = () => {
     ),
   ];
 
+  const handleEditUnit = async (unit) => {
+    if (!unit?.id) return;
+
+    setEditingUnit(unit);
+    setShowEditForm(true);
+    setIsFetchingUnit(true);
+
+    try {
+      const detailedUnit = await dispatch(fetchUnitById(unit.id)).unwrap();
+      if (detailedUnit) {
+        setEditingUnit(detailedUnit);
+      }
+    } catch (err) {
+      console.error("Failed to fetch unit details:", err);
+      toast.error(
+        direction === "rtl"
+          ? "تعذر تحميل بيانات الوحدة"
+          : "Unable to load unit details"
+      );
+    } finally {
+      setIsFetchingUnit(false);
+    }
+  };
+
+  const handleCloseEditForm = () => {
+    setShowEditForm(false);
+    setEditingUnit(null);
+    setIsFetchingUnit(false);
+  };
+
+  const handleSaveUnit = async (unitData) => {
+    try {
+      await dispatch(updateUnit(unitData)).unwrap();
+      toast.success(
+        direction === "rtl"
+          ? "تم تحديث الوحدة بنجاح"
+          : "Unit updated successfully"
+      );
+      setShowEditForm(false);
+      setEditingUnit(null);
+      await dispatch(fetchUnits());
+    } catch (err) {
+      console.error("Failed to update unit:", err);
+      toast.error(
+        direction === "rtl" ? "تعذر تحديث الوحدة" : "Unable to update unit"
+      );
+    }
+  };
   const filteredUnits = units.filter((unit) => {
     const unitName = unit.name || "";
     const locationText = unit.location_text || "";
@@ -587,10 +637,7 @@ const Units = () => {
                     size="sm"
                     className="hover:bg-gray-100 dark:hover:bg-gray-700"
                     title={t("units.edit") || "Edit"}
-                    onClick={() => {
-                      setEditingUnit(unit);
-                      setShowForm(true);
-                    }}
+                    onClick={() => handleEditUnit(unit)}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -636,38 +683,13 @@ const Units = () => {
           )}
         </motion.div>
       )}
-
-      {/* Unit Form Modal */}
-      {showForm && (
+      {/* Unit Edit Form */}
+      {showEditForm && editingUnit && (
         <UnitForm
           unit={editingUnit}
-          onSave={async (unitData) => {
-            try {
-              if (editingUnit) {
-                await dispatch(
-                  updateUnit({ id: editingUnit.id, data: unitData })
-                ).unwrap();
-                toast.success(
-                  t("units.updateSuccess") || "Unit updated successfully"
-                );
-              } else {
-                await dispatch(createUnit(unitData)).unwrap();
-                toast.success(
-                  t("units.addSuccess") || "Unit added successfully"
-                );
-              }
-              setShowForm(false);
-              setEditingUnit(null);
-              dispatch(fetchUnits()); // Refresh units list
-            } catch (err) {
-              toast.error(err || "Failed to save unit");
-            }
-          }}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingUnit(null);
-          }}
-          isEdit={!!editingUnit}
+          onSave={handleSaveUnit}
+          onCancel={handleCloseEditForm}
+          isEdit={true}
         />
       )}
     </div>

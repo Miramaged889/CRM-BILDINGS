@@ -516,14 +516,8 @@ const ReservationForm = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {direction === "rtl"
-                      ? `التكلفة الإجمالية (${
-                          formData.rentalType === "daily" ? "يومي" : "شهري"
-                        })`
-                      : `Total Cost (${
-                          formData.rentalType === "daily"
-                            ? "per day"
-                            : "per month"
-                        })`}{" "}
+                      ? `التكلفة الإجمالية`
+                      : `Total Cost`}{" "}
                     *
                   </label>
                   <Input
@@ -534,16 +528,8 @@ const ReservationForm = ({
                     }
                     placeholder={
                       direction === "rtl"
-                        ? `أدخل التكلفة الإجمالية ${
-                            formData.rentalType === "daily"
-                              ? "اليومية"
-                              : "الشهرية"
-                          }`
-                        : `Enter ${
-                            formData.rentalType === "daily"
-                              ? "daily"
-                              : "monthly"
-                          } total cost`
+                        ? `أدخل التكلفة الإجمالية`
+                        : `Enter total cost`
                     }
                     min="0"
                     step="0.01"

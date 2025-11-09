@@ -17,7 +17,6 @@ import {
   Phone,
   Building2,
   Home,
-  Star,
   Edit,
   Trash2,
   Calendar,
@@ -127,7 +126,6 @@ const OwnerDetail = () => {
         email: ownerData.email,
         phone: ownerData.phone,
         address: ownerData.address || "",
-        rate: ownerData.rate || parseFloat(ownerData.rating || "0"),
       };
       await dispatch(
         updateOwner({ id: currentOwner.id, data: updateData })
@@ -259,7 +257,7 @@ const OwnerDetail = () => {
       </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -272,22 +270,6 @@ const OwnerDetail = () => {
             </div>
             <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-full">
               <Home className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {direction === "rtl" ? "التقييم" : "Rating"}
-              </p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                {parseFloat(owner.rate || owner.rating || 0).toFixed(1)}
-              </p>
-            </div>
-            <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-full">
-              <Star className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
           </div>
         </Card>
@@ -565,12 +547,6 @@ const OwnerDetail = () => {
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {owner.full_name || owner.name}
               </h3>
-              <div className="flex items-center justify-center text-amber-500 mt-2">
-                <Star className="h-4 w-4 fill-current" />
-                <span className="ml-1">
-                  {parseFloat(owner.rate || owner.rating || 0).toFixed(1)}
-                </span>
-              </div>
             </div>
           </Card>
 

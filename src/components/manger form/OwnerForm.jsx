@@ -10,12 +10,10 @@ import {
   MapPin,
   Save,
   X,
-  Upload,
   Building2,
   DollarSign,
   Star,
   FileText,
-  Camera,
 } from "lucide-react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
@@ -30,16 +28,14 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
     email: owner?.email || "",
     phone: owner?.phone || "",
     address: owner?.address || "",
-    dateJoined: owner?.date_joined || owner?.dateJoined 
-      ? isoToDateInput(owner.date_joined || owner.dateJoined)
-      : new Date().toISOString().split("T")[0],
-    avatar: owner?.avatar || "",
+    dateJoined:
+      owner?.date_joined || owner?.dateJoined
+        ? isoToDateInput(owner.date_joined || owner.dateJoined)
+        : new Date().toISOString().split("T")[0],
     notes: owner?.notes || "",
-    rate: owner?.rate || owner?.rating || "",
   });
 
   const [errors, setErrors] = useState({});
-  const [avatarPreview, setAvatarPreview] = useState(owner?.avatar || "");
 
   // Update form data when owner prop changes
   React.useEffect(() => {
@@ -49,14 +45,12 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
         email: owner.email || "",
         phone: owner.phone || "",
         address: owner.address || "",
-        dateJoined: owner.date_joined || owner.dateJoined
-          ? isoToDateInput(owner.date_joined || owner.dateJoined)
-          : new Date().toISOString().split("T")[0],
-        avatar: owner.avatar || "",
+        dateJoined:
+          owner.date_joined || owner.dateJoined
+            ? isoToDateInput(owner.date_joined || owner.dateJoined)
+            : new Date().toISOString().split("T")[0],
         notes: owner.notes || "",
-        rate: owner.rate || owner.rating || "",
       });
-      setAvatarPreview(owner.avatar || "");
     }
   }, [owner]);
 
@@ -72,21 +66,6 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
         ...prev,
         [field]: "",
       }));
-    }
-  };
-
-  const handleAvatarUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target.result);
-        setFormData((prev) => ({
-          ...prev,
-          avatar: e.target.result,
-        }));
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -131,8 +110,6 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
         id: owner?.id || Date.now(),
         // Map to API format
         full_name: formData.name,
-        rate: parseFloat(formData.rate || '0'),
-        rating: parseFloat(formData.rate || '0'), // For backward compatibility
       };
 
       onSave(ownerData);
@@ -185,47 +162,6 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-8 space-y-8">
-          {/* Avatar Section */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white dark:border-gray-700 shadow-lg bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700">
-                {avatarPreview ? (
-                  <img
-                    src={avatarPreview}
-                    alt="Avatar preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <User className="h-16 w-16 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-full transition-all duration-200 flex items-center justify-center">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                  id="avatar-upload"
-                />
-                <label
-                  htmlFor="avatar-upload"
-                  className="cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200"
-                >
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded-full shadow-lg">
-                    <Camera className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-                  </div>
-                </label>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
-              {direction === "rtl"
-                ? "انقر لتغيير صورة المالك"
-                : "Click to change owner avatar"}
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Basic Information */}
             <div className="space-y-6">
@@ -466,29 +402,7 @@ const OwnerForm = ({ owner = null, onSave, onCancel, isEdit = false }) => {
                     onChange={(e) =>
                       handleInputChange("dateJoined", e.target.value)
                     }
-                    className="h-12 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-xl focus:border-green-500 focus:ring-0 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label className=" text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
-                    <Star
-                      className={`h-4 w-4 text-amber-500 ${
-                        direction === "rtl" ? "ml-2" : "mr-2"
-                      }`}
-                    />
-                    {direction === "rtl" ? "التقييم" : "Rating"} (0-5)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="5"
-                    step="0.1"
-                    value={formData.rate}
-                    onChange={(e) =>
-                      handleInputChange("rate", e.target.value)
-                    }
-                    placeholder={direction === "rtl" ? "0.0 - 5.0" : "0.0 - 5.0"}
-                    className="h-12 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-xl focus:border-amber-500 focus:ring-0 transition-all duration-200"
+                    className="h-12 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-xl focus:border-green-500 focus:ring-0 transition-all.duration-200"
                   />
                 </div>
               </div>

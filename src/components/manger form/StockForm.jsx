@@ -2,26 +2,25 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useTranslation } from "react-i18next";
-import { isoToDateInput } from "../../utils/dateUtils";
-import {
-  Package,
-  Building,
-  DollarSign,
-  Calendar,
-  MapPin,
-  Save,
-  X,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
+import { Package, DollarSign, Save, X, TrendingUp } from "lucide-react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 
-const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
+const normalizeRentEndQuantity = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  return String(value);
+};
+
+const StockForm = ({
+  stock = null,
+  onSave,
+  onCancel,
+  isEdit = false,
+  isLoading = false,
+}) => {
   const { direction } = useLanguageStore();
   const { t } = useTranslation();
 
@@ -33,12 +32,13 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
     unit: stock?.unit_of_measure || stock?.unit || "",
     unitPrice: stock?.unit_price || stock?.unitPrice || "",
     supplier: stock?.supplier_name || stock?.supplier || "",
-    location: stock?.location || "",
     description: stock?.description || "",
-    lastRestocked:
-      stock?.lastRestocked || stock?.updated_at
-        ? isoToDateInput(stock.lastRestocked || stock.updated_at)
-        : new Date().toISOString().split("T")[0],
+    autoDeduct: Boolean(
+      stock?.auto_deduct_on_rent_end ?? stock?.autoDeduct ?? false
+    ),
+    rentEndQuantity: normalizeRentEndQuantity(
+      stock?.rent_end_quantity ?? stock?.rentEndQuantity ?? ""
+    ),
   });
 
   const [errors, setErrors] = useState({});
@@ -54,34 +54,35 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
         unit: stock.unit_of_measure || stock.unit || "",
         unitPrice: stock.unit_price || stock.unitPrice || "",
         supplier: stock.supplier_name || stock.supplier || "",
-        location: stock.location || "",
         description: stock.description || "",
-        lastRestocked:
-          stock.lastRestocked || stock.updated_at
-            ? isoToDateInput(stock.lastRestocked || stock.updated_at)
-            : new Date().toISOString().split("T")[0],
+        autoDeduct: Boolean(
+          stock.auto_deduct_on_rent_end ?? stock.autoDeduct ?? false
+        ),
+        rentEndQuantity: normalizeRentEndQuantity(
+          stock.rent_end_quantity ?? stock.rentEndQuantity ?? ""
+        ),
       });
     }
   }, [stock]);
 
   const categories = [
-    { value: "Maintenance", label: "Maintenance" },
-    { value: "Electrical", label: "Electrical" },
-    { value: "Plumbing", label: "Plumbing" },
-    { value: "Security", label: "Security" },
-    { value: "Cleaning", label: "Cleaning" },
-    { value: "Furniture", label: "Furniture" },
+    { value: "Maintenance", labelKey: "stock.maintenance" },
+    { value: "Electrical", labelKey: "stock.electrical" },
+    { value: "Plumbing", labelKey: "stock.plumbing" },
+    { value: "Security", labelKey: "stock.security" },
+    { value: "Cleaning", labelKey: "stock.cleaning" },
+    { value: "Furniture", labelKey: "stock.furniture" },
   ];
 
   const units = [
-    { value: "Pieces", label: "Pieces" },
-    { value: "Boxes", label: "Boxes" },
-    { value: "Gallons", label: "Gallons" },
-    { value: "Liters", label: "Liters" },
-    { value: "Kits", label: "Kits" },
-    { value: "Sets", label: "Sets" },
-    { value: "Meters", label: "Meters" },
-    { value: "Feet", label: "Feet" },
+    { value: "Pieces", labelKey: "stock.pieces" },
+    { value: "Boxes", labelKey: "stock.boxes" },
+    { value: "Gallons", labelKey: "stock.gallons" },
+    { value: "Liters", labelKey: "stock.liters" },
+    { value: "Kits", labelKey: "stock.kits" },
+    { value: "Sets", labelKey: "stock.sets" },
+    { value: "Meters", labelKey: "stock.meters" },
+    { value: "Feet", labelKey: "stock.feet" },
   ];
 
   const handleInputChange = (field, value) => {
@@ -99,49 +100,53 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
     }
   };
 
+  const handleAutoDeductChange = (checked) => {
+    setFormData((prev) => ({
+      ...prev,
+      autoDeduct: checked,
+      rentEndQuantity: checked ? prev.rentEndQuantity || "" : "",
+    }));
+
+    if (!checked && errors.rentEndQuantity) {
+      setErrors((prev) => ({ ...prev, rentEndQuantity: "" }));
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name =
-        direction === "rtl" ? "اسم العنصر مطلوب" : "Item name is required";
+      newErrors.name = t("stock.errors.nameRequired");
     }
 
     if (!formData.category.trim()) {
-      newErrors.category =
-        direction === "rtl" ? "الفئة مطلوبة" : "Category is required";
+      newErrors.category = t("stock.errors.categoryRequired");
     }
 
     if (!formData.quantity || formData.quantity < 0) {
-      newErrors.quantity =
-        direction === "rtl" ? "الكمية مطلوبة" : "Quantity is required";
+      newErrors.quantity = t("stock.errors.quantityRequired");
     }
 
     if (!formData.minQuantity || formData.minQuantity < 0) {
-      newErrors.minQuantity =
-        direction === "rtl"
-          ? "الحد الأدنى للكمية مطلوب"
-          : "Minimum quantity is required";
+      newErrors.minQuantity = t("stock.errors.minimumQuantityRequired");
     }
 
     if (!formData.unit.trim()) {
-      newErrors.unit =
-        direction === "rtl" ? "الوحدة مطلوبة" : "Unit is required";
+      newErrors.unit = t("stock.errors.unitRequired");
     }
 
     if (!formData.unitPrice || formData.unitPrice <= 0) {
-      newErrors.unitPrice =
-        direction === "rtl" ? "سعر الوحدة مطلوب" : "Unit price is required";
+      newErrors.unitPrice = t("stock.errors.unitPriceRequired");
     }
 
     if (!formData.supplier.trim()) {
-      newErrors.supplier =
-        direction === "rtl" ? "المورد مطلوب" : "Supplier is required";
+      newErrors.supplier = t("stock.errors.supplierRequired");
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location =
-        direction === "rtl" ? "الموقع مطلوب" : "Location is required";
+    if (formData.autoDeduct) {
+      if (!formData.rentEndQuantity || Number(formData.rentEndQuantity) <= 0) {
+        newErrors.rentEndQuantity = t("stock.errors.rentEndQuantityRequired");
+      }
     }
 
     setErrors(newErrors);
@@ -160,6 +165,10 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
         unit_of_measure: formData.unit,
         unit_price: formData.unitPrice,
         supplier_name: formData.supplier,
+        auto_deduct_on_rent_end: Boolean(formData.autoDeduct),
+        rent_end_quantity: formData.autoDeduct
+          ? Number(formData.rentEndQuantity)
+          : null,
       };
 
       onSave(stockData);
@@ -183,18 +192,10 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex-1">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  {isEdit
-                    ? direction === "rtl"
-                      ? "تعديل عنصر المخزون"
-                      : "Edit Stock Item"
-                    : direction === "rtl"
-                    ? "إضافة عنصر مخزون جديد"
-                    : "Add New Stock Item"}
+                  {t(isEdit ? "stock.editItem" : "stock.addItem")}
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-                  {direction === "rtl"
-                    ? "املأ البيانات التالية لإضافة عنصر مخزون جديد"
-                    : "Fill in the following information to add a new stock item"}
+                  {t("stock.formSubtitle")}
                 </p>
               </div>
               <button
@@ -204,6 +205,11 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
+            {isLoading && (
+              <div className="mt-3 text-sm text-primary-600 dark:text-primary-400">
+                {t("common.loading")}
+              </div>
+            )}
           </div>
 
           {/* Form */}
@@ -216,25 +222,19 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     direction === "rtl" ? "ml-2" : "mr-2"
                   }`}
                 />
-                {direction === "rtl"
-                  ? "المعلومات الأساسية"
-                  : "Basic Information"}
+                {t("stock.basicInfo")}
               </h3>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "اسم العنصر" : "Item Name"} *
+                    {t("stock.itemName")} *
                   </label>
                   <Input
                     value={formData.name}
                     onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل اسم العنصر"
-                        : "Enter item name"
-                    }
+                    placeholder={t("stock.enterItemName")}
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
                       errors.name ? "border-red-500" : ""
                     }`}
@@ -247,7 +247,7 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الفئة" : "Category"} *
+                    {t("stock.category")} *
                   </label>
                   <select
                     value={formData.category}
@@ -258,14 +258,10 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                       errors.category ? "border-red-500" : ""
                     }`}
                   >
-                    <option value="">
-                      {direction === "rtl" ? "اختر الفئة" : "Select Category"}
-                    </option>
+                    <option value="">{t("stock.selectCategory")}</option>
                     {categories.map((category) => (
                       <option key={category.value} value={category.value}>
-                        {direction === "rtl"
-                          ? t(`stock.${category.value}`)
-                          : category.label}
+                        {t(category.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -279,18 +275,14 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 {/* Description */}
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الوصف" : "Description"}
+                    {t("stock.description")}
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) =>
                       handleInputChange("description", e.target.value)
                     }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل وصف العنصر"
-                        : "Enter item description"
-                    }
+                    placeholder={t("stock.enterDescription")}
                     rows={3}
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                   />
@@ -306,19 +298,14 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     direction === "rtl" ? "ml-2" : "mr-2"
                   }`}
                 />
-                {direction === "rtl"
-                  ? "معلومات الكمية"
-                  : "Quantity Information"}
+                {t("stock.quantityInfo")}
               </h3>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Current Quantity */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl"
-                      ? "الكمية الحالية"
-                      : "Current Quantity"}{" "}
-                    *
+                    {t("stock.currentQuantity")} *
                   </label>
                   <Input
                     type="number"
@@ -326,9 +313,7 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     onChange={(e) =>
                       handleInputChange("quantity", e.target.value)
                     }
-                    placeholder={
-                      direction === "rtl" ? "أدخل الكمية" : "Enter quantity"
-                    }
+                    placeholder={t("stock.enterQuantity")}
                     min="0"
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
                       errors.quantity ? "border-red-500" : ""
@@ -344,7 +329,7 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 {/* Minimum Quantity */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الحد الأدنى" : "Minimum Quantity"} *
+                    {t("stock.minimumQuantity")} *
                   </label>
                   <Input
                     type="number"
@@ -352,11 +337,7 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     onChange={(e) =>
                       handleInputChange("minQuantity", e.target.value)
                     }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل الحد الأدنى"
-                        : "Enter minimum quantity"
-                    }
+                    placeholder={t("stock.enterMinimumQuantity")}
                     min="0"
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
                       errors.minQuantity ? "border-red-500" : ""
@@ -372,7 +353,7 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 {/* Unit */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الوحدة" : "Unit"} *
+                    {t("stock.unit")} *
                   </label>
                   <select
                     value={formData.unit}
@@ -381,14 +362,10 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                       errors.unit ? "border-red-500" : ""
                     }`}
                   >
-                    <option value="">
-                      {direction === "rtl" ? "اختر الوحدة" : "Select Unit"}
-                    </option>
+                    <option value="">{t("stock.selectUnit")}</option>
                     {units.map((unit) => (
                       <option key={unit.value} value={unit.value}>
-                        {direction === "rtl"
-                          ? t(`stock.${unit.value}`)
-                          : unit.label}
+                        {t(unit.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -396,6 +373,52 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     <p className="text-red-500 text-sm mt-1">{errors.unit}</p>
                   )}
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg">
+                  <label className="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.autoDeduct}
+                      onChange={(e) => handleAutoDeductChange(e.target.checked)}
+                      className="form-checkbox h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    />
+                    <span
+                      className={`${direction === "rtl" ? "mr-2" : "ml-2"}`}
+                    >
+                      {t("stock.autoDeductOnRentEnd")}
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t("stock.autoDeductDescription")}
+                  </p>
+                </div>
+
+                {formData.autoDeduct && (
+                  <div className="lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t("stock.rentEndQuantity")} *
+                    </label>
+                    <Input
+                      type="number"
+                      value={formData.rentEndQuantity}
+                      onChange={(e) =>
+                        handleInputChange("rentEndQuantity", e.target.value)
+                      }
+                      placeholder={t("stock.enterRentEndQuantity")}
+                      min="1"
+                      className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
+                        errors.rentEndQuantity ? "border-red-500" : ""
+                      }`}
+                    />
+                    {errors.rentEndQuantity && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.rentEndQuantity}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -407,16 +430,14 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     direction === "rtl" ? "ml-2" : "mr-2"
                   }`}
                 />
-                {direction === "rtl"
-                  ? "المعلومات المالية"
-                  : "Financial Information"}
+                {t("stock.financialInfo")}
               </h3>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Unit Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "سعر الوحدة" : "Unit Price"} *
+                    {t("stock.unitPrice")} *
                   </label>
                   <Input
                     type="number"
@@ -424,11 +445,7 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                     onChange={(e) =>
                       handleInputChange("unitPrice", e.target.value)
                     }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل سعر الوحدة"
-                        : "Enter unit price"
-                    }
+                    placeholder={t("stock.enterUnitPrice")}
                     min="0"
                     step="0.01"
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
@@ -445,18 +462,14 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 {/* Supplier */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "المورد" : "Supplier"} *
+                    {t("stock.supplier")} *
                   </label>
                   <Input
                     value={formData.supplier}
                     onChange={(e) =>
                       handleInputChange("supplier", e.target.value)
                     }
-                    placeholder={
-                      direction === "rtl"
-                        ? "أدخل اسم المورد"
-                        : "Enter supplier name"
-                    }
+                    placeholder={t("stock.enterSupplier")}
                     className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
                       errors.supplier ? "border-red-500" : ""
                     }`}
@@ -470,61 +483,6 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
               </div>
             </div>
 
-            {/* Location Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                <MapPin
-                  className={`h-5 w-5 text-orange-600 ${
-                    direction === "rtl" ? "ml-2" : "mr-2"
-                  }`}
-                />
-                {direction === "rtl"
-                  ? "معلومات الموقع"
-                  : "Location Information"}
-              </h3>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "الموقع" : "Location"} *
-                  </label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e) =>
-                      handleInputChange("location", e.target.value)
-                    }
-                    placeholder={
-                      direction === "rtl" ? "أدخل الموقع" : "Enter location"
-                    }
-                    className={`bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                      errors.location ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.location && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.location}
-                    </p>
-                  )}
-                </div>
-
-                {/* Last Restocked */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {direction === "rtl" ? "آخر إعادة تخزين" : "Last Restocked"}
-                  </label>
-                  <Input
-                    type="date"
-                    value={formData.lastRestocked}
-                    onChange={(e) =>
-                      handleInputChange("lastRestocked", e.target.value)
-                    }
-                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-              </div>
-            </div>
-
             {/* Form Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
               <Button
@@ -532,23 +490,22 @@ const StockForm = ({ stock = null, onSave, onCancel, isEdit = false }) => {
                 variant="outline"
                 onClick={onCancel}
                 className="w-full sm:w-auto px-6 py-2"
+                disabled={isLoading}
               >
                 <X
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
-                {direction === "rtl" ? "إلغاء" : "Cancel"}
+                {t("common.cancel")}
               </Button>
-              <Button type="submit" className="w-full sm:w-auto px-6 py-2">
+              <Button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-2"
+                disabled={isLoading}
+              >
                 <Save
                   className={`h-4 w-4 ${direction === "rtl" ? "ml-2" : "mr-2"}`}
                 />
-                {isEdit
-                  ? direction === "rtl"
-                    ? "حفظ التغييرات"
-                    : "Save Changes"
-                  : direction === "rtl"
-                  ? "إضافة العنصر"
-                  : "Add Item"}
+                {t(isEdit ? "common.save" : "stock.addItem")}
               </Button>
             </div>
           </form>

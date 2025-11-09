@@ -44,6 +44,7 @@ const API_ENDPOINTS = {
     CREATE_OCCASIONAL_PAYMENT: (unitId) => `/api/occasional/payments/unit/${unitId}/`,
     UPDATE_OCCASIONAL_PAYMENT: (unitId, paymentId) => `/api/occasional/payments/unit/${unitId}/${paymentId}/`,
     DELETE_OCCASIONAL_PAYMENT: (unitId, paymentId) => `/api/occasional/payments/unit/${unitId}/${paymentId}/`,
+    GET_OCCASIONAL_PAYMENTS: "/api/occasional/payments/",
     
     // Company Payments
     COMPANY_REVENUE: "/api/all/payments/me/",

@@ -61,7 +61,6 @@ const UnitForm = ({ unit = null, onSave, onCancel, isEdit = false }) => {
       : new Date().toISOString().split("T")[0],
     lease_end: unit?.lease_end ? isoToDateInput(unit.lease_end) : "",
     price_per_day: unit?.price_per_day || "",
-    status: unit?.status?.toLowerCase() || "available",
   });
 
   const [images, setImages] = useState([]);
@@ -109,7 +108,6 @@ const UnitForm = ({ unit = null, onSave, onCancel, isEdit = false }) => {
           : new Date().toISOString().split("T")[0],
         lease_end: unit.lease_end ? isoToDateInput(unit.lease_end) : "",
         price_per_day: unit.price_per_day || "",
-        status: (unit.status || "available").toLowerCase(),
       });
 
       // Set existing images as previews
@@ -335,7 +333,7 @@ const UnitForm = ({ unit = null, onSave, onCancel, isEdit = false }) => {
         bathrooms: parseInt(formData.bathrooms),
         area: parseFloat(formData.area),
         type: formData.type.toLowerCase(),
-        status: formData.status,
+        status: (unit?.status || "available").toLowerCase(),
         images: images,
       };
 
@@ -357,14 +355,18 @@ const UnitForm = ({ unit = null, onSave, onCancel, isEdit = false }) => {
     { value: "retail", label: direction === "rtl" ? "تجاري" : "Retail" },
   ];
 
-  const statusOptions = [
-    { value: "available", label: direction === "rtl" ? "متاح" : "Available" },
-    { value: "occupied", label: direction === "rtl" ? "مؤجر" : "Occupied" },
-    {
-      value: "in_maintenance",
-      label: direction === "rtl" ? "تحت الصيانة" : "In Maintenance",
-    },
-  ];
+  const filteredDistricts = districts.filter((district) => {
+    const districtCityId =
+      district?.city_id ??
+      district?.cityId ??
+      (typeof district?.city === "object" ? district.city?.id : district?.city);
+
+    return (
+      districtCityId !== undefined &&
+      districtCityId !== null &&
+      districtCityId.toString() === (formData.city ?? "").toString()
+    );
+  });
 
   return (
     <motion.div
@@ -718,7 +720,7 @@ const UnitForm = ({ unit = null, onSave, onCancel, isEdit = false }) => {
                     ? "اختر الحي"
                     : "Select District"}
                 </option>
-                {districts.map((district) => (
+                {filteredDistricts.map((district) => (
                   <option key={district.id} value={district.id}>
                     {district.name}
                   </option>
@@ -814,24 +816,6 @@ const UnitForm = ({ unit = null, onSave, onCancel, isEdit = false }) => {
                 }
                 placeholder={direction === "rtl" ? "0.00" : "0.00"}
               />
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center">
-                {direction === "rtl" ? "الحالة" : "Status"} (Optional)
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) => handleInputChange("status", e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
-              >
-                {statusOptions.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 

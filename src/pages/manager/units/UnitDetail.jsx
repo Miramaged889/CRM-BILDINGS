@@ -10,6 +10,7 @@ import {
   clearError,
   clearCurrentUnit,
 } from "../../../store/slices/unitsSlice";
+import { createOccasionalPayment } from "../../../store/slices/paymentsSlice";
 import {
   ArrowLeft,
   Edit,
@@ -32,6 +33,7 @@ import {
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import ReservationForm from "../../../components/manger form/ReservationForm";
+import PaymentForm from "../../../components/manger form/Payment/PaymentForm";
 import toast from "react-hot-toast";
 import { UnitForm } from "../../../components/manger form";
 
@@ -48,6 +50,7 @@ const UnitDetail = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   // Fetch unit data on mount
   useEffect(() => {
@@ -156,6 +159,38 @@ const UnitDetail = () => {
     }
   };
 
+  const handleSaveOccasionalPayment = async (paymentData) => {
+    try {
+      if (!currentUnit?.id) {
+        toast.error(
+          direction === "rtl" ? "الوحدة غير متاحة" : "Unit not available"
+        );
+        return;
+      }
+      await dispatch(
+        createOccasionalPayment({
+          unitId: currentUnit.id,
+          paymentData,
+        })
+      ).unwrap();
+      toast.success(
+        direction === "rtl"
+          ? "تم إضافة الدفعة بنجاح"
+          : "Payment added successfully"
+      );
+      setShowPaymentForm(false);
+      if (id) {
+        await dispatch(fetchUnitPayments(id));
+        await dispatch(fetchUnitById(id));
+      }
+    } catch (error) {
+      console.error("Error creating payment:", error);
+      toast.error(
+        direction === "rtl" ? "تعذر حفظ الدفعة" : "Unable to save payment"
+      );
+    }
+  };
+
   // Get payments from both sources: unitPayments (Redux) and rent_payment_history (from unit data)
   const unitPaymentsList = Array.isArray(unitPayments)
     ? unitPayments
@@ -217,6 +252,10 @@ const UnitDetail = () => {
     });
   }, [rentPaymentHistory, unitPaymentsList]);
 
+  const totalPaymentsAmount = React.useMemo(() => {
+    return payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  }, [payments]);
+
   // Loading state
   if (isLoading && !currentUnit) {
     return (
@@ -271,6 +310,30 @@ const UnitDetail = () => {
   const paymentsSummary = unit.payments_summary || {};
   const unitPaymentSummary = unit.unit_payment_summary || {};
 
+  const parsePercentage = (value) => {
+    if (value === null || value === undefined || value === "") return undefined;
+    const numeric =
+      typeof value === "string" ? parseFloat(value) : Number(value);
+    if (!Number.isFinite(numeric)) return undefined;
+    return Number(Math.min(100, Math.max(0, numeric)).toFixed(2));
+  };
+
+  const rawOwnerPercentage =
+    unit.owner_percentage ?? unitPaymentSummary.owner_percentage ?? "";
+  const ownerPercentage = parsePercentage(rawOwnerPercentage);
+  const systemPercentage =
+    typeof ownerPercentage === "number"
+      ? Number((100 - ownerPercentage).toFixed(2))
+      : undefined;
+  const ownerShareAmount =
+    typeof ownerPercentage === "number"
+      ? Number(((totalPaymentsAmount * ownerPercentage) / 100).toFixed(2))
+      : undefined;
+  const systemShareAmount =
+    typeof systemPercentage === "number"
+      ? Number(((totalPaymentsAmount * systemPercentage) / 100).toFixed(2))
+      : undefined;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="p-4 md:p-6 space-y-6">
@@ -305,6 +368,20 @@ const UnitDetail = () => {
                   >
                     {t(`units.${unit.status?.toLowerCase()}`) || unit.status}
                   </span>
+                  {typeof ownerPercentage === "number" && (
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      {direction === "rtl"
+                        ? `حصة المالك: ${ownerPercentage}%`
+                        : `Owner Share: ${ownerPercentage}%`}
+                    </span>
+                  )}
+                  {typeof systemPercentage === "number" && (
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      {direction === "rtl"
+                        ? `حصة النظام: ${systemPercentage}%`
+                        : `System Share: ${systemPercentage}%`}
+                    </span>
+                  )}
                   <span className="text-gray-500 dark:text-gray-400 capitalize flex items-center">
                     <Building
                       className={`h-4 w-4 ${
@@ -569,6 +646,33 @@ const UnitDetail = () => {
                   />
                   {t("units.paymentHistory")}
                 </h3>
+                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {direction === "rtl"
+                      ? `إجمالي المدفوعات: $${totalPaymentsAmount.toLocaleString(
+                          "en-US"
+                        )}`
+                      : `Total Payments: $${totalPaymentsAmount.toLocaleString(
+                          "en-US"
+                        )}`}
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {typeof ownerPercentage === "number" && (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                        {direction === "rtl"
+                          ? `نسبة المالك ${ownerPercentage}%`
+                          : `Owner ${ownerPercentage}%`}
+                      </span>
+                    )}
+                    {typeof systemPercentage === "number" && (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        {direction === "rtl"
+                          ? `نسبة النظام ${systemPercentage}%`
+                          : `System ${systemPercentage}%`}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {payments.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table
@@ -819,54 +923,72 @@ const UnitDetail = () => {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   {t("units.quickActions")}
                 </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  <div className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-center">
+                    <p className="text-xs uppercase text-gray-500 dark:text-gray-400 font-medium">
+                      {direction === "rtl"
+                        ? "إجمالي المدفوعات"
+                        : "Total Payments"}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      $
+                      {totalPaymentsAmount.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                  {typeof ownerPercentage === "number" && (
+                    <div className="p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 text-center">
+                      <p className="text-xs uppercase text-indigo-600 dark:text-indigo-300 font-medium">
+                        {direction === "rtl" ? "حصة المالك" : "Owner Share"}
+                      </p>
+                      <p className="text-lg font-semibold text-indigo-700 dark:text-indigo-200">
+                        ${ownerShareAmount}
+                      </p>
+                    </div>
+                  )}
+                  {typeof systemPercentage === "number" && (
+                    <div className="p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30 text-center">
+                      <p className="text-xs uppercase text-purple-600 dark:text-purple-300 font-medium">
+                        {direction === "rtl" ? "حصة النظام" : "System Share"}
+                      </p>
+                      <p className="text-lg font-semibold text-purple-700 dark:text-purple-200">
+                        ${systemShareAmount}
+                      </p>
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-3">
                   <Button
                     variant="outline"
                     className="w-full justify-start hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
                     size="sm"
+                    onClick={() => setShowPaymentForm(true)}
                   >
                     <DollarSign
                       className={`h-4 w-4 ${
                         direction === "rtl" ? "ml-2" : "mr-2"
                       }`}
                     />
-                    {t("units.recordPayment")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
-                    size="sm"
-                  >
-                    <Calendar
-                      className={`h-4 w-4 ${
-                        direction === "rtl" ? "ml-2" : "mr-2"
-                      }`}
-                    />
-                    {t("units.scheduleMaintenance")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition-colors"
-                    size="sm"
-                  >
-                    <Mail
-                      className={`h-4 w-4 ${
-                        direction === "rtl" ? "ml-2" : "mr-2"
-                      }`}
-                    />
-                    {t("units.sendNotice")}
+                    {direction === "rtl"
+                      ? "إضافة دفعة عرضية"
+                      : "Add Occasional Payment"}
                   </Button>
                   <Button
                     variant="outline"
                     className="w-full justify-start hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 transition-colors"
                     size="sm"
+                    onClick={() => navigate("/reports")}
                   >
                     <Eye
                       className={`h-4 w-4 ${
                         direction === "rtl" ? "ml-2" : "mr-2"
                       }`}
                     />
-                    {t("units.generateReport")}
+                    {direction === "rtl"
+                      ? "الانتقال إلى التقارير"
+                      : "Go to Reports"}
                   </Button>
                 </div>
               </Card>
@@ -893,6 +1015,16 @@ const UnitDetail = () => {
           onSave={handleSaveUnit}
           onCancel={handleCloseEditForm}
           isEdit={true}
+        />
+      )}
+
+      {showPaymentForm && currentUnit && (
+        <PaymentForm
+          payment={null}
+          unitId={currentUnit.id}
+          onSave={handleSaveOccasionalPayment}
+          onClose={() => setShowPaymentForm(false)}
+          isEdit={false}
         />
       )}
     </div>

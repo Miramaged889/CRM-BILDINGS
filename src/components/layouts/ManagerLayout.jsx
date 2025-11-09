@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,9 +6,10 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logoutUser } from "../../store/slices/authSlice";
 import { useLanguageStore } from "../../stores/languageStore";
 import { useThemeStore } from "../../stores/themeStore";
-import { Menu, X, Bell, Search, LogOut, Sun, Moon, Globe } from "lucide-react";
+import { X, Bell, Search, LogOut, Sun, Moon, Globe } from "lucide-react";
 import Icon from "../ui/Icon";
 import Input from "../ui/Input";
+import { getNotifications } from "../../services/api";
 
 const managerNavItems = [
   { name: "nav.dashboard", href: "/dashboard", icon: "LayoutDashboard" },
@@ -29,6 +30,12 @@ const ManagerLayout = ({ children }) => {
   const { direction, toggleLanguage } = useLanguageStore();
   const { isDark, toggleTheme } = useThemeStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationsRef = useRef(null);
+  const notificationsFetchedRef = useRef(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState(null);
 
   // Initialize language and direction
   useEffect(() => {
@@ -38,6 +45,87 @@ const ManagerLayout = ({ children }) => {
     document.documentElement.lang = language;
     document.body.dir = direction;
   }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const formatNotificationTimestamp = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return isoString;
+    return date.toLocaleString(direction === "rtl" ? "ar-EG" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      setNotificationsLoading(true);
+      setNotificationsError(null);
+      try {
+        const response = await getNotifications();
+        const rawNotifications = Array.isArray(response)
+          ? response
+          : response?.results || response?.data || [];
+
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const parsedNotifications = rawNotifications
+          .filter((item) => {
+            const createdAt = new Date(
+              item.created_at || item.createdAt || item.date
+            );
+            return createdAt >= sixMonthsAgo;
+          })
+          .map((item) => ({
+            id: item.id ?? item.pk ?? item.uuid ?? Math.random().toString(36),
+            message: item.message || item.title || "",
+            createdAt: item.created_at || item.createdAt || item.date || null,
+          }))
+          .sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA;
+          });
+
+        setNotifications(parsedNotifications);
+        notificationsFetchedRef.current = true;
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+        setNotificationsError(
+          error?.message ||
+            (direction === "rtl"
+              ? "تعذر تحميل الإشعارات"
+              : "Unable to load notifications")
+        );
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+
+    if (showNotifications && !notificationsFetchedRef.current) {
+      fetchNotifications();
+    }
+  }, [showNotifications, direction]);
+
+  const unreadCount =
+    typeof count === "number" && count >= 0 ? count : notifications.length;
 
   const sidebarVariants = {
     open: {
@@ -306,28 +394,95 @@ const ManagerLayout = ({ children }) => {
             {/* Right side */}
             <div className="flex items-center space-x-3 rtl:space-x-reverse">
               {/* Notifications */}
-              <motion.button
-                className="relative p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title={t("common.notifications")}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Bell className="h-4 w-4 text-gray-500" />
-                {count > 0 && (
-                  <motion.span
-                    className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 500,
-                      damping: 30,
-                    }}
-                  >
-                    {count > 9 ? "9+" : count}
-                  </motion.span>
-                )}
-              </motion.button>
+              <div className="relative" ref={notificationsRef}>
+                <motion.button
+                  className="relative p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title={t("common.notifications")}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowNotifications((prev) => !prev)}
+                  aria-haspopup="true"
+                  aria-expanded={showNotifications}
+                >
+                  <Bell className="h-4 w-4 text-gray-500" />
+                  {!!unreadCount && (
+                    <motion.span
+                      className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 30,
+                      }}
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </motion.span>
+                  )}
+                </motion.button>
+
+                <AnimatePresence>
+                  {showNotifications && (
+                    <motion.div
+                      key="manager-notifications"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className={`absolute mt-2 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-30 ${
+                        direction === "rtl" ? "left-0" : "right-0"
+                      }`}
+                    >
+                      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {t("common.notifications")}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {notificationsLoading
+                            ? t("common.loading")
+                            : `${notifications.length}`}
+                        </span>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {notificationsLoading ? (
+                          <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                            {t("common.loading")}
+                          </div>
+                        ) : notificationsError ? (
+                          <div className="px-4 py-6 text-center text-sm text-red-500 dark:text-red-400">
+                            {notificationsError}
+                          </div>
+                        ) : notifications.length ? (
+                          notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className="px-4 py-3 border-b border-gray-100 dark:border-gray-700/60 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {notification.message ||
+                                    (direction === "rtl"
+                                      ? "إشعار"
+                                      : "Notification")}
+                                </p>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                                  {formatNotificationTimestamp(
+                                    notification.createdAt
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                            {t("dashboard.noActivity")}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Theme Toggle */}
               <motion.button

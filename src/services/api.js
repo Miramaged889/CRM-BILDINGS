@@ -95,3 +95,13 @@ export const updateRent = async (id, formData) => {
   // Partial update via PATCH; formData can include only changed fields (e.g., total_amount)
   return api.patch(API_ENDPOINTS.RENTS.UPDATE(id), formData);
 };
+
+// Occasional Payments
+export const getOccasionalPayments = async (params = {}) => {
+  return api.get(API_ENDPOINTS.PAYMENTS.GET_OCCASIONAL_PAYMENTS, { params });
+};
+
+// Notifications
+export const getNotifications = async (params = {}) => {
+  return api.get(API_ENDPOINTS.NOTIFICATIONS.LIST, { params });
+};

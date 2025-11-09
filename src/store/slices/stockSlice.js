@@ -48,6 +48,18 @@ export const createStock = createAsyncThunk(
       if (stockData.supplier_name || stockData.supplier) {
         formData.append('supplier_name', stockData.supplier_name || stockData.supplier);
       }
+      const autoDeductValue =
+        stockData.auto_deduct_on_rent_end ?? stockData.autoDeduct;
+      if (autoDeductValue !== undefined) {
+        const autoDeduct = Boolean(autoDeductValue);
+        formData.append('auto_deduct_on_rent_end', autoDeduct ? 'true' : 'false');
+        formData.append(
+          'rent_end_quantity',
+          autoDeduct
+            ? (stockData.rent_end_quantity ?? stockData.rentEndQuantity ?? 0)
+            : 0
+        );
+      }
 
       const response = await api.post(API_ENDPOINTS.STOCK.CREATE, formData);
       return response;
@@ -76,6 +88,14 @@ export const updateStock = createAsyncThunk(
       if (data.lower_quantity !== undefined) formData.append('lower_quantity', data.lower_quantity);
       if (data.unit_of_measure) formData.append('unit_of_measure', data.unit_of_measure);
       if (data.supplier_name) formData.append('supplier_name', data.supplier_name);
+      if (data.auto_deduct_on_rent_end !== undefined) {
+        const autoDeduct = Boolean(data.auto_deduct_on_rent_end);
+        formData.append('auto_deduct_on_rent_end', autoDeduct ? 'true' : 'false');
+        formData.append(
+          'rent_end_quantity',
+          autoDeduct ? (data.rent_end_quantity ?? data.rentEndQuantity ?? 0) : 0
+        );
+      }
 
       const response = await api.patch(API_ENDPOINTS.STOCK.UPDATE(id), formData);
       return response;

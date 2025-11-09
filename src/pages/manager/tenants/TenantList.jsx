@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
-import Avatar from "../../../components/ui/Avatar";
 import { TenantForm } from "../../../components/manger form";
 
 const TenantList = () => {
@@ -51,8 +50,6 @@ const TenantList = () => {
   }, [dispatch, searchTerm]);
 
   const tenants = useMemo(() => {
-    const placeholderAvatar =
-      "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150";
     return (tenantsFromStore || []).map((item) => {
       const rentInfo = item.rent_info || {};
       const totalAmount =
@@ -70,7 +67,6 @@ const TenantList = () => {
         status: rentInfo.status || item.status || "active",
         rentalType: "daily",
         rent: Number.isFinite(totalAmount) ? totalAmount : 0,
-        avatar: item.avatar || placeholderAvatar,
       };
     });
   }, [tenantsFromStore]);
@@ -229,13 +225,8 @@ const TenantList = () => {
               <Card className="p-6 hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-gray-800 group">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                    <div className="relative">
-                      <Avatar
-                        src={tenant.avatar}
-                        alt={tenant.name}
-                        size="lg"
-                        className="ring-2 ring-primary-200 dark:ring-primary-800"
-                      />
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                      {(tenant.name || "?").charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
