@@ -80,7 +80,7 @@ const Reports = () => {
     ownerPayments,
     isLoading: paymentsLoading,
   } = useAppSelector((state) => state.payments);
-  // Note: revenueReport endpoint doesn't exist, using companyRevenue instead
+  // Note: revenueReport endpoint doesn't exist, using company revenue data
   // const { revenueReport, isLoading: reportsLoading } = useAppSelector(
   //   (state) => state.reports
   // );
@@ -95,6 +95,55 @@ const Reports = () => {
     endDate: new Date().toISOString().split("T")[0],
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const ARABIC_FONT_FILE = "Tajawal-Regular.ttf";
+  const ARABIC_FONT_NAME = "Tajawal";
+  const ARABIC_FONT_PATH = "/fonts/Tajawal-Regular.ttf";
+  let arabicFontDataPromise = null;
+
+  const arrayBufferToBase64 = (buffer) => {
+    if (typeof window === "undefined") {
+      throw new Error("Arabic font conversion requires a browser environment");
+    }
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  };
+
+  const loadArabicFontData = async () => {
+    if (!arabicFontDataPromise) {
+      arabicFontDataPromise = fetch(ARABIC_FONT_PATH)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to load Arabic font file");
+          }
+          return response.arrayBuffer();
+        })
+        .then(arrayBufferToBase64)
+        .catch((error) => {
+          arabicFontDataPromise = null;
+          throw error;
+        });
+    }
+    return arabicFontDataPromise;
+  };
+
+  const ensureArabicPdfFont = async (doc) => {
+    if (doc.__tajawalFontLoaded) {
+      doc.setFont(ARABIC_FONT_NAME);
+      return;
+    }
+    const fontData = await loadArabicFontData();
+    doc.addFileToVFS(ARABIC_FONT_FILE, fontData);
+    doc.addFont(ARABIC_FONT_FILE, ARABIC_FONT_NAME, "normal");
+    doc.addFont(ARABIC_FONT_FILE, ARABIC_FONT_NAME, "bold");
+    doc.__tajawalFontLoaded = true;
+    doc.setFont(ARABIC_FONT_NAME);
+  };
 
   const parseAmount = (value) => {
     const numeric =
@@ -440,38 +489,46 @@ const Reports = () => {
   };
 
   // Export to PDF
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const horizontalMargin = 40;
+      const baseX =
+        direction === "rtl" ? pageWidth - horizontalMargin : horizontalMargin;
+      const alignOption = direction === "rtl" ? "right" : "left";
       const { monthLabels } = generateDateBasedData();
       const selectedOwnerName =
         availableOwners.find((o) => o.id === selectedOwner)?.name ||
-        "All Owners";
+        (direction === "rtl" ? "جميع الملاك" : "All Owners");
+
+      if (direction === "rtl") {
+        await ensureArabicPdfFont(doc);
+      } else {
+        doc.setFont("helvetica", "normal");
+      }
 
       // Title
       doc.setFontSize(18);
       doc.text(
         direction === "rtl" ? "التقرير المالي" : "Financial Report",
-        direction === "rtl" ? 190 : 14,
-        20
+        baseX,
+        60,
+        { align: alignOption }
       );
 
       // Period and Owner Info
       doc.setFontSize(12);
-      doc.text(
-        `${direction === "rtl" ? "الفترة" : "Period"}: ${new Date(
-          dateRange.startDate
-        ).toLocaleDateString()} - ${new Date(
-          dateRange.endDate
-        ).toLocaleDateString()}`,
-        direction === "rtl" ? 190 : 14,
-        30
-      );
-      doc.text(
-        `${direction === "rtl" ? "المالك" : "Owner"}: ${selectedOwnerName}`,
-        direction === "rtl" ? 190 : 14,
-        37
-      );
+      const periodLabel = `${
+        direction === "rtl" ? "الفترة" : "Period"
+      }: ${new Date(dateRange.startDate).toLocaleDateString()} - ${new Date(
+        dateRange.endDate
+      ).toLocaleDateString()}`;
+      const ownerLabel = `${
+        direction === "rtl" ? "المالك" : "Owner"
+      }: ${selectedOwnerName}`;
+      doc.text(periodLabel, baseX, 80, { align: alignOption });
+      doc.text(ownerLabel, baseX, 96, { align: alignOption });
 
       // Financial Summary Table
       const summaryData = [
@@ -496,7 +553,7 @@ const Reports = () => {
       ];
 
       autoTable(doc, {
-        startY: 45,
+        startY: 120,
         head: [
           [
             direction === "rtl" ? "البند" : "Item",
@@ -505,7 +562,23 @@ const Reports = () => {
         ],
         body: summaryData,
         theme: "striped",
-        headStyles: { fillColor: [59, 130, 246] },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          halign: alignOption,
+          valign: "middle",
+          font: direction === "rtl" ? ARABIC_FONT_NAME : "helvetica",
+        },
+        bodyStyles: {
+          halign: alignOption,
+          font: direction === "rtl" ? ARABIC_FONT_NAME : "helvetica",
+        },
+        styles: {
+          font: direction === "rtl" ? ARABIC_FONT_NAME : "helvetica",
+        },
+        margin: {
+          left: horizontalMargin,
+          right: horizontalMargin,
+        },
       });
 
       // Monthly Data Table
@@ -515,8 +588,9 @@ const Reports = () => {
         formatCurrency(filteredData.monthlyExpenses[index] || 0),
       ]);
 
+      const monthlyTableStart = (doc.lastAutoTable?.finalY || 120) + 30;
       autoTable(doc, {
-        startY: 90,
+        startY: monthlyTableStart,
         head: [
           [
             direction === "rtl" ? "الشهر" : "Month",
@@ -526,28 +600,40 @@ const Reports = () => {
         ],
         body: monthlyData,
         theme: "striped",
-        headStyles: { fillColor: [59, 130, 246] },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          halign: alignOption,
+          font: direction === "rtl" ? ARABIC_FONT_NAME : "helvetica",
+        },
+        bodyStyles: {
+          halign: alignOption,
+          font: direction === "rtl" ? ARABIC_FONT_NAME : "helvetica",
+        },
+        styles: {
+          font: direction === "rtl" ? ARABIC_FONT_NAME : "helvetica",
+        },
+        margin: {
+          left: horizontalMargin,
+          right: horizontalMargin,
+        },
       });
 
       // Footer
       const pageCount = doc.internal.pages.length - 1;
-      for (let i = 1; i <= pageCount; i++) {
+      const footerLabel = `${
+        direction === "rtl" ? "تم الإنشاء في" : "Generated on"
+      }: ${new Date().toLocaleDateString()}`;
+      for (let i = 1; i <= pageCount; i += 1) {
         doc.setPage(i);
         doc.setFontSize(10);
-        doc.text(
-          `${
-            direction === "rtl" ? "تم الإنشاء في" : "Generated on"
-          }: ${new Date().toLocaleDateString()}`,
-          direction === "rtl" ? 190 : 14,
-          doc.internal.pageSize.height - 10
-        );
+        doc.text(footerLabel, baseX, doc.internal.pageSize.height - 30, {
+          align: alignOption,
+        });
       }
 
       // Save PDF
-      const fileName = `Financial_Report_${selectedOwnerName.replace(
-        /\s+/g,
-        "_"
-      )}_${dateRange.startDate}_${dateRange.endDate}.pdf`;
+      const normalizedOwnerName = selectedOwnerName.replace(/\s+/g, "_");
+      const fileName = `Financial_Report_${normalizedOwnerName}_${dateRange.startDate}_${dateRange.endDate}.pdf`;
       doc.save(fileName);
       toast.success(
         direction === "rtl" ? "تم تصدير PDF بنجاح" : "PDF exported successfully"
@@ -566,7 +652,7 @@ const Reports = () => {
       const { monthLabels } = generateDateBasedData();
       const selectedOwnerName =
         availableOwners.find((o) => o.id === selectedOwner)?.name ||
-        "All Owners";
+        (direction === "rtl" ? "جميع الملاك" : "All Owners");
 
       // Create workbook
       const wb = XLSX.utils.book_new();
@@ -641,7 +727,7 @@ const Reports = () => {
         /\s+/g,
         "_"
       )}_${dateRange.startDate}_${dateRange.endDate}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+      XLSX.writeFile(wb, fileName, { compression: true, bookType: "xlsx" });
       toast.success(
         direction === "rtl"
           ? "تم تصدير Excel بنجاح"
@@ -656,12 +742,15 @@ const Reports = () => {
   };
 
   // Export all reports
-  const handleExportAll = () => {
-    // Export both PDF and Excel
-    handleExportPDF();
-    setTimeout(() => {
-      handleExportExcel();
-    }, 500);
+  const handleExportAll = async () => {
+    try {
+      await handleExportPDF();
+      setTimeout(() => {
+        handleExportExcel();
+      }, 400);
+    } catch (error) {
+      console.error("Error exporting reports:", error);
+    }
   };
 
   return (
